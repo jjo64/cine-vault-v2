@@ -1,0 +1,364 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model diary_entries {
+  id           Int        @id @default(autoincrement())
+  user_id      Int
+  movie_id     Int
+  watched_date DateTime?  @db.Date
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "diary_entries_ibfk_1")
+  movies_ref   movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "diary_entries_ibfk_2")
+
+  @@index([movie_id], map: "movie_id")
+  @@index([user_id], map: "user_id")
+}
+
+model favorites {
+  id            Int        @id @default(autoincrement())
+  user_id       Int
+  movie_id      Int
+  rank_position Int?
+  users         users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "favorites_ibfk_1")
+  movies_ref    movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "favorites_ibfk_2")
+
+  @@index([movie_id], map: "movie_id")
+  @@index([user_id], map: "user_id")
+}
+
+model follows {
+  id                                Int   @id @default(autoincrement())
+  follower_id                       Int
+  following_id                      Int
+  users_follows_follower_idTousers  users @relation("follows_follower_idTousers", fields: [follower_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "follows_ibfk_1")
+  users_follows_following_idTousers users @relation("follows_following_idTousers", fields: [following_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "follows_ibfk_2")
+
+  @@unique([follower_id, following_id], map: "follower_id")
+  @@index([following_id], map: "following_id")
+}
+
+model movies_ref {
+  id            Int             @id @default(autoincrement())
+  tmdb_id       Int             @unique(map: "tmdb_id")
+  diary_entries diary_entries[]
+  favorites     favorites[]
+  list_items    user_list_items[]
+  reviews       reviews[]
+  vault         vault[]
+  watchlist     watchlist[]
+}
+
+model user_lists {
+  id          Int               @id @default(autoincrement())
+  user_id     Int
+  name        String            @db.VarChar(120)
+  description String?           @db.Text
+  is_public   Boolean           @default(false)
+  created_at  DateTime          @default(now()) @db.Timestamp(0)
+  updated_at  DateTime          @default(now()) @db.Timestamp(0)
+  users       users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  items       user_list_items[]
+
+  @@index([user_id], map: "idx_user_lists_user_id")
+}
+
+model user_list_items {
+  id         Int        @id @default(autoincrement())
+  list_id    Int
+  movie_id   Int
+  added_at   DateTime   @default(now()) @db.Timestamp(0)
+  movie_list user_lists @relation(fields: [list_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  movie_ref  movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([list_id, movie_id], map: "uniq_list_movie")
+  @@index([list_id], map: "idx_user_list_items_list_id")
+  @@index([movie_id], map: "idx_user_list_items_movie_id")
+}
+
+model news {
+  id         Int            @id @default(autoincrement())
+  title      String?        @db.VarChar(255)
+  content    String?        @db.Text
+  category   news_category?
+  created_at DateTime       @default(now()) @db.Timestamp(0)
+}
+
+model notifications {
+  id         Int                @id @default(autoincrement())
+  user_id    Int
+  sender_id  Int?
+  type       notifications_type
+  read       Boolean            @default(false)
+  created_at DateTime           @default(now()) @db.Timestamp(0)
+  receiver   users              @relation("notifications_receiver", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  sender     users?             @relation("notifications_sender", fields: [sender_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+
+  @@index([user_id], map: "idx_notifications_user_id")
+  @@index([read], map: "idx_notifications_read")
+}
+
+model payments {
+  id                  Int                      @id @default(autoincrement())
+  user_id             Int
+  subscription_id     Int?
+  amount              Decimal?                 @db.Decimal(6, 2)
+  currency            String?                  @default("EUR") @db.VarChar(10)
+  provider            payments_provider?
+  payment_status      payments_payment_status? @default(pending)
+  provider_payment_id String?                  @db.VarChar(255)
+  created_at          DateTime                 @default(now()) @db.Timestamp(0)
+  users               users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "payments_ibfk_1")
+  subscriptions       subscriptions?           @relation(fields: [subscription_id], references: [id], onDelete: NoAction, onUpdate: Restrict, map: "payments_ibfk_2")
+
+  @@index([subscription_id], map: "subscription_id")
+  @@index([user_id], map: "user_id")
+}
+
+model reports {
+  id          Int             @id @default(autoincrement())
+  reporter_id Int?
+  review_id   Int?
+  reason      String?         @db.Text
+  status      reports_status? @default(pending)
+  created_at  DateTime        @default(now()) @db.Timestamp(0)
+  users       users?          @relation(fields: [reporter_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "reports_ibfk_1")
+  reviews     reviews?        @relation(fields: [review_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "reports_ibfk_2")
+
+  @@index([reporter_id], map: "reporter_id")
+  @@index([review_id], map: "review_id")
+}
+
+model reviews {
+  id              Int               @id @default(autoincrement())
+  user_id         Int
+  movie_id        Int
+  content         String?           @db.Text
+  rating          Decimal?          @db.Decimal(2, 1)
+  likes           Int?              @default(0)
+  created_at      DateTime          @default(now()) @db.Timestamp(0)
+  reports         reports[]
+  review_comments review_comments[]
+  review_likes    review_likes[]
+  users           users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "reviews_ibfk_1")
+  movies_ref      movies_ref        @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "reviews_ibfk_2")
+
+  @@index([movie_id], map: "movie_id")
+  @@index([user_id], map: "user_id")
+}
+
+model subscriptions {
+  id                       Int                     @id @default(autoincrement())
+  user_id                  Int
+  plan                     subscriptions_plan?     @default(free)
+  start_date               DateTime?               @db.Date
+  end_date                 DateTime?               @db.Date
+  status                   subscriptions_status?   @default(active)
+  provider                 subscriptions_provider? @default(stripe)
+  provider_subscription_id String?                 @db.VarChar(255)
+  payments                 payments[]
+  users                    users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "subscriptions_ibfk_1")
+
+  @@index([user_id], map: "user_id")
+}
+
+model user_activity {
+  id         Int      @id @default(autoincrement())
+  user_id    Int?
+  action     String?  @db.VarChar(100)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  users      users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "user_activity_ibfk_1")
+
+  @@index([user_id], map: "user_id")
+}
+
+model users {
+  id                                  Int               @id @default(autoincrement())
+  username                            String            @unique(map: "username") @db.VarChar(50)
+  email                               String            @unique(map: "email") @db.VarChar(100)
+  password                            String            @db.VarChar(255)
+  avatar_url                          String?           @db.Text
+  bio                                 String?           @db.Text
+  role                                users_role?       @default(user)
+  membership                          users_membership? @default(free)
+  is_verified                         Boolean           @default(false)
+  google_id                           String?           @unique(map: "google_id") @db.VarChar(255)
+  two_factor_enabled                  Boolean           @default(false)
+  two_factor_secret                   String?           @db.VarChar(255)
+  failed_attempts                     Int               @default(0)
+  locked_until                        DateTime?         @db.DateTime(0)
+  created_at                          DateTime          @default(now()) @db.Timestamp(0)
+  updated_at                          DateTime          @default(now()) @db.Timestamp(0)
+  auth_tokens                         auth_tokens[]
+  diary_entries                       diary_entries[]
+  favorites                           favorites[]
+  follows_follows_follower_idTousers  follows[]         @relation("follows_follower_idTousers")
+  follows_follows_following_idTousers follows[]         @relation("follows_following_idTousers")
+  notifications_received              notifications[]   @relation("notifications_receiver")
+  notifications_sent                  notifications[]   @relation("notifications_sender")
+  payments                            payments[]
+  reports                             reports[]
+  review_comments                     review_comments[]
+  review_likes                        review_likes[]
+  reviews                             reviews[]
+  sessions                            sessions[]
+  subscriptions                       subscriptions[]
+  user_lists                          user_lists[]
+  user_activity                       user_activity[]
+  vault                               vault[]
+  watchlist                           watchlist[]
+
+  @@index([is_verified, created_at])
+  @@index([locked_until])
+  @@index([membership])
+  @@index([role])
+}
+
+model vault {
+  id         Int        @id @default(autoincrement())
+  user_id    Int
+  movie_id   Int
+  added_at   DateTime   @default(now()) @db.Timestamp(0)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "vault_ibfk_1")
+  movies_ref movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "vault_ibfk_2")
+
+  @@unique([user_id, movie_id], map: "user_id")
+  @@index([movie_id], map: "movie_id")
+}
+
+model watchlist {
+  id         Int        @id @default(autoincrement())
+  user_id    Int
+  movie_id   Int
+  added_at   DateTime   @default(now()) @db.Timestamp(0)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "watchlist_ibfk_1")
+  movies_ref movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "watchlist_ibfk_2")
+
+  @@unique([user_id, movie_id], map: "user_id")
+  @@index([movie_id], map: "movie_id")
+}
+
+model auth_tokens {
+  id         String           @id @db.VarChar(36)
+  user_id    Int
+  token      String           @unique(map: "token") @db.VarChar(255)
+  type       auth_tokens_type
+  expires_at DateTime         @db.DateTime(0)
+  created_at DateTime         @default(now()) @db.Timestamp(0)
+  users      users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_auth_tokens_user")
+
+  @@index([token], map: "idx_auth_tokens_token")
+  @@index([user_id], map: "idx_auth_tokens_user_id")
+}
+
+model sessions {
+  id            String   @id @db.VarChar(36)
+  user_id       Int
+  refresh_token String   @db.VarChar(255)
+  token_hash    String?  @db.VarChar(64)
+  user_agent    String?  @db.Text
+  ip_address    String?  @db.VarChar(45)
+  expires_at    DateTime @db.DateTime(0)
+  created_at    DateTime @default(now()) @db.Timestamp(0)
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_sessions_user")
+
+  @@index([refresh_token], map: "idx_sessions_refresh_token")
+  @@index([user_id], map: "idx_sessions_user_id")
+  @@index([token_hash], map: "idx_sessions_token_hash")
+}
+
+model review_likes {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  review_id  Int
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "review_likes_ibfk_1")
+  reviews    reviews   @relation(fields: [review_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "review_likes_ibfk_2")
+
+  @@unique([user_id, review_id], map: "unique_user_review_like")
+  @@index([review_id], map: "idx_review_id")
+  @@index([user_id], map: "idx_user_id")
+}
+
+model review_comments {
+  id         Int      @id @default(autoincrement())
+  review_id  Int
+  user_id    Int
+  content    String   @db.Text
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  reviews    reviews  @relation(fields: [review_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([review_id], map: "idx_review_comments_review_id")
+  @@index([user_id], map: "idx_review_comments_user_id")
+}
+
+enum notifications_type {
+  follow
+  like
+  comment
+  report_resolved
+}
+
+enum subscriptions_plan {
+  free
+  vip
+  pro
+}
+
+enum news_category {
+  estrenos
+  premios
+  actores
+  directores
+  streaming
+}
+
+enum reports_status {
+  pending
+  resolved
+  rejected
+}
+
+enum payments_provider {
+  stripe
+  paypal
+}
+
+enum subscriptions_status {
+  active
+  expired
+  cancelled
+}
+
+enum payments_payment_status {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum subscriptions_provider {
+  stripe
+  paypal
+}
+
+enum users_role {
+  admin
+  editor
+  user
+}
+
+enum users_membership {
+  free
+  vip
+  pro
+}
+
+enum auth_tokens_type {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
