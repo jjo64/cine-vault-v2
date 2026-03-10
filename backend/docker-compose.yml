@@ -1,22 +1,63 @@
 services:
+  # Base de Datos (MariaDB)
+  db:
+    image: mariadb:10.11
+    container_name: cinevault-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DATABASE_PASSWORD:-root_password}
+      MARIADB_DATABASE: ${DATABASE_NAME:-cinevault}
+      MARIADB_USER: ${DATABASE_USER:-cinevault_user}
+      MARIADB_PASSWORD: ${DATABASE_PASSWORD:-cinevault_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - cinevault-network
+
+  # Redis (Caché y Rate Limit)
   redis:
     image: redis:7-alpine
     container_name: cinevault-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-cinevault_redis_pass}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    networks:
+      - cinevault-network
+
+  # Backend (Node.js + Express)
+  backend:
+    build: .
+    container_name: cinevault-backend
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    environment:
+      - PORT=${PORT:-4000}
+      - DATABASE_URL=mysql://${DATABASE_USER:-cinevault_user}:${DATABASE_PASSWORD:-cinevault_pass}@db:3306/${DATABASE_NAME:-cinevault}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-cinevault_redis_pass}
+      - JWT_SECRET=${JWT_SECRET}
+      - REFRESH_SECRET=${REFRESH_SECRET}
+      - API_KEY_TMDB=${API_KEY_TMDB}
+      - FRONTEND_URL=${FRONTEND_URL}
+    ports:
+      - "${PORT:-4000}:${PORT:-4000}"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cinevault-network
+
+networks:
+  cinevault-network:
+    driver: bridge
 
 volumes:
+  db_data:
   redis_data:
