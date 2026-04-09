@@ -11,6 +11,8 @@ export const PERMISOS = {
   // Reviews
   BORRAR_REVIEWS_AJENAS: "borrar_reviews_ajenas",
 
+  BORRAR_COMENTARIOS_AJENOS: "borrar_comentarios_ajenos",  //Creo permiso para eliminar comentarios ajenos
+
   // Reportes
   GESTIONAR_REPORTES: "gestionar_reportes", // resolver/rechazar
   VER_REPORTES: "ver_reportes", // solo lectura
@@ -44,6 +46,7 @@ const PERMISOS_POR_ROL: Record<string, Permiso[]> = {
     PERMISOS.CAMBIAR_ROL_USUARIOS,
     PERMISOS.VER_ACTIVIDAD_USUARIOS,
     PERMISOS.VER_PAGOS,
+    PERMISOS.BORRAR_COMENTARIOS_AJENOS // Añado los permisos al rol de admin para gestionar comentarios ajenos
   ],
   editor: [PERMISOS.GESTIONAR_NOTICIAS, PERMISOS.VER_REPORTES],
   user: [],

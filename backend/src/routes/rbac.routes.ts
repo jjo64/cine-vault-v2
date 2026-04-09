@@ -69,6 +69,34 @@ router.delete(
   })
 )
 
+// El dueño del comentario puede borrarlo
+// Un admin puede borrar cualquier comentario
+// Un usuario normal NO puede borrar comentarios ajenos
+
+/* ==========================================================================
+   COMENTARIOS — el dueño puede borrar el suyo, el admin cualquiera
+   ========================================================================== */
+router.delete(
+  "/comments/:id",
+  middlewareAutenticacion,
+  verificarPropietarioOPermiso(
+    PERMISOS.BORRAR_COMENTARIOS_AJENOS,
+    async (req: Request) => {
+      const comentario = await prisma.review_comments.findUnique({
+        where: { id: Number(req.params.id) },
+        select: { user_id: true },
+      })
+      return comentario?.user_id ?? null
+    }
+  ),
+  manejadorAsincrono(async (req, res) => {
+    await prisma.review_comments.delete({
+      where: { id: Number(req.params.id) },
+    })
+    res.json({ message: "Comentario eliminado correctamente" })
+  })
+)
+
 /* ==========================================================================
    NOTICIAS — solo admin y editor pueden crear/editar/borrar
    ========================================================================== */
