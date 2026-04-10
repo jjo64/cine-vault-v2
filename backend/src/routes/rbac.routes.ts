@@ -358,6 +358,84 @@ router.get(
   })
 )
 
+/* ==========================================================================
+   ESTADÍSTICAS GENERALES — solo admin
+   --------------------------------------------------------------------------
+   Devuelve un resumen del estado de la plataforma en tiempo real.
+   Útil para el panel de administración — de un vistazo se ve el estado
+   general sin tener que consultar cada tabla por separado.
+   ========================================================================== */
+router.get(
+  "/stats",
+  middlewareAutenticacion,
+  // Reutilizamos VER_ACTIVIDAD_USUARIOS ya que es un permiso de solo lectura
+  // exclusivo de admin — no hace falta crear un permiso nuevo para esto
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(async (req, res) => {
+    // Calculamos las fechas de referencia para los filtros temporales
+    const ahora = new Date()
+    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1) // primer día del mes actual
+    const inicioSemana = new Date(ahora)
+    inicioSemana.setDate(ahora.getDate() - 7) // hace 7 días
+
+    
+    // Promise.all ejecuta todas las consultas a la BD en paralelo
+    // En vez de esperar una por una (lento), las lanzamos todas a la vez
+    // y esperamos a que terminen todas juntas (rápido)
+    const [
+      totalUsuarios,
+      usuariosAdmin,
+      usuariosEditor,
+      usuariosUser,
+      usuariosNuevosMes,
+      totalResenas,
+      resenasSemana,
+      reportesPendientes,
+      reportesResueltos,
+      reportesRechazados,
+      totalComentarios,
+    ] = await Promise.all([
+      prisma.users.count(),                                                        // total de usuarios registrados
+      prisma.users.count({ where: { role: "admin" } }),                            // cuántos son admin
+      prisma.users.count({ where: { role: "editor" } }),                           // cuántos son editor
+      prisma.users.count({ where: { role: "user" } }),                             // cuántos son usuarios normales
+      prisma.users.count({ where: { created_at: { gte: inicioMes } } }),           // registrados este mes
+      prisma.reviews.count(),                                                      // total de reseñas
+      prisma.reviews.count({ where: { created_at: { gte: inicioSemana } } }),      // reseñas esta semana
+      prisma.reports.count({ where: { status: "pending" } }),                      // reportes sin gestionar
+      prisma.reports.count({ where: { status: "resolved" } }),                     // reportes resueltos
+      prisma.reports.count({ where: { status: "rejected" } }),                     // reportes rechazados
+      prisma.review_comments.count(),                                              // total de comentarios
+    ])
+
+    // Estructuramos la respuesta en secciones para que sea fácil de consumir
+    // desde el frontend — cada sección agrupa datos relacionados
+    res.json({
+      usuarios: {
+        total: totalUsuarios,
+        por_rol: {
+          admin: usuariosAdmin,
+          editor: usuariosEditor,
+          user: usuariosUser,
+        },
+        nuevos_este_mes: usuariosNuevosMes,
+      },
+      resenas: {
+        total: totalResenas,
+        esta_semana: resenasSemana,         // útil para ver si hay actividad reciente
+      },
+      reportes: {
+        pendientes: reportesPendientes,     // estos son los que requieren atención inmediata
+        resueltos: reportesResueltos,
+        rechazados: reportesRechazados,
+      },
+      comentarios: {
+        total: totalComentarios,
+      },
+    })
+  })
+)
+
 /**
  * @swagger
  * /rbac/payments:
