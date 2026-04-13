@@ -50,6 +50,13 @@ export const moderarTexto = async (texto: string): Promise<ModerationResult> => 
       body: JSON.stringify({ input: texto }),
     })
 
+    // Verificamos que la respuesta sea exitosa antes de parsear
+// fetch no lanza error en códigos 4xx/5xx — solo en fallos de red
+  if (!respuesta.ok) {
+    console.warn(`[Moderación] OpenAI respondió ${respuesta.status}, contenido no moderado`)
+    return RESULTADO_LIMPIO
+}
+
     const datos = await respuesta.json() as {
       results: Array<{
         flagged: boolean
