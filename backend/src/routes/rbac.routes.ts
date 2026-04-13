@@ -17,6 +17,10 @@ import { PERMISOS } from "../config/permisos.js"
 import { prisma } from "../lib/prisma.js"
 import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
+import { obtenerEstadisticas, borrarComentario } from "../controllers/RbacController.js"
+import { rbacRepository } from "../repositories/RbacRepository.js"
+
+
 /**
  * @swagger
  * tags:
@@ -75,12 +79,20 @@ router.delete(
 
 /* ==========================================================================
    COMENTARIOS — el dueño puede borrar el suyo, el admin cualquiera
+<<<<<<< Updated upstream
+=======
+   --------------------------------------------------------------------------
+   La lógica de negocio y las queries están en:
+   - services/rbac.services.ts
+   - repositories/RbacRepository.ts
+>>>>>>> Stashed changes
    ========================================================================== */
 router.delete(
   "/comments/:id",
   middlewareAutenticacion,
   verificarPropietarioOPermiso(
     PERMISOS.BORRAR_COMENTARIOS_AJENOS,
+<<<<<<< Updated upstream
     async (req: Request) => {
       const comentario = await prisma.review_comments.findUnique({
         where: { id: Number(req.params.id) },
@@ -95,6 +107,11 @@ router.delete(
     })
     res.json({ message: "Comentario eliminado correctamente" })
   })
+=======
+    async (req: Request) => rbacRepository.obtenerPropietarioComentario(Number(req.params.id))
+  ),
+  manejadorAsincrono(borrarComentario)
+>>>>>>> Stashed changes
 )
 
 /* ==========================================================================
@@ -389,13 +406,20 @@ router.get(
 /* ==========================================================================
    ESTADÍSTICAS GENERALES — solo admin
    --------------------------------------------------------------------------
+<<<<<<< Updated upstream
    Devuelve un resumen del estado de la plataforma en tiempo real.
    Útil para el panel de administración — de un vistazo se ve el estado
    general sin tener que consultar cada tabla por separado.
+=======
+   La lógica de negocio y las queries están en:
+   - services/rbac.services.ts
+   - repositories/RbacRepository.ts
+>>>>>>> Stashed changes
    ========================================================================== */
 router.get(
   "/stats",
   middlewareAutenticacion,
+<<<<<<< Updated upstream
   // Reutilizamos VER_ACTIVIDAD_USUARIOS ya que es un permiso de solo lectura
   // exclusivo de admin — no hace falta crear un permiso nuevo para esto
   verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
@@ -462,6 +486,10 @@ router.get(
       },
     })
   })
+=======
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerEstadisticas)
+>>>>>>> Stashed changes
 )
 
 /**
