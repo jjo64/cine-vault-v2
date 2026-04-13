@@ -9,6 +9,9 @@ const adapter = new PrismaMariaDb({
   password: process.env.DATABASE_PASSWORD || "",
   database: process.env.DATABASE_NAME || "cinevault",
   connectionLimit: 5,
+  ssl: {
+    rejectUnauthorized: false
+  }
 })
 
 const prisma = new PrismaClient({ adapter })
