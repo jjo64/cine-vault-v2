@@ -16,6 +16,8 @@ import type {
 } from "../schemas/reviews.js"
 import { ensureMovieRefId, findMovieRefIdByCandidate } from "./movieRef.services.js"
 
+import { verificarContenido } from "./content.services.js" 
+
 /* ==========================================================================
    REVIEWS SERVICE
    --------------------------------------------------------------------------
@@ -53,19 +55,17 @@ export const obtenerResenasPorPeliculaService = async (movieId: number) => {
 }
 
 export const crearResenaService = (userId: number, data: CrearResenaDTO) =>
-  verificarYCrearResenaUnica(userId, data)
+   verificarYCrearResenaUnica(userId, data)
 
-const verificarYCrearResenaUnica = async (
-  userId: number,
-  data: CrearResenaDTO
-) => {
+const verificarYCrearResenaUnica = async (userId: number, data: CrearResenaDTO) => {
   const movieId = await ensureMovieRefId(data.movie_id)
-  const existente = await reviewsRepository.findByUserAndMovie(
-    userId,
-    movieId
-  )
+  const existente = await reviewsRepository.findByUserAndMovie(userId,movieId)
   if (existente)
     throw new ConflictError("Ya tienes una reseña para esta película")
+
+    // Moderación automática — analiza el contenido antes de guardarlo
+  if (data.content) await verificarContenido(data.content)
+
   const resena = await reviewsRepository.create(userId, {
     ...data,
     movie_id: movieId,
@@ -89,16 +89,26 @@ export const actualizarResenaService = async (
   return updated
 }
 
+/*export — hace que esta función esté disponible para otros archivos. Sin esto, solo existiría dentro de este archivo.
+  const eliminarResenaService — el nombre de la función
+  async — tiene operaciones lentas dentro, usará await
+  (userId: number, reviewId: number) — recibe dos datos: el ID del usuario y el ID de la reseña. El : number es TypeScript diciéndole que ambos tienen que ser números.
+  => { — aquí empieza el cuerpo de la función*/
 export const eliminarResenaService = async (
   userId: number,
   reviewId: number
 ) => {
+  //Llama a una función auxiliar que comprueba que reviewId es un número válido. Si no lo es, lanza un error antes de consultar la BD.
   const id = asegurarId(reviewId)
+  //Le pregunta a la base de datos: "¿existe una reseña con este ID?". El await espera la respuesta antes de continuar.
   const resena = await reviewsRepository.findById(id)
+  //Si la reseña no existe — !resena significa "si resena está vacío" — lanza un error 404. El throw para la ejecución ahí mismo.
   if (!resena) throw new NotFoundError("Reseña no encontrada")
-  if (resena.user_id !== userId)
-    throw new ForbiddenError("No tienes permiso para eliminar esta reseña")
+  //Compara quién es el dueño de la reseña con quién está intentando borrarla. Si no coinciden, lanza un error 403.  
+  if (resena.user_id !== userId) throw new ForbiddenError("No tienes permiso para eliminar esta reseña")
+  //Si ha pasado todos los controles, borra la reseña de la BD. 
   await reviewsRepository.delete(id)
+  //Limpia la caché de Redis para esa película. Si no lo hiciera, alguien podría seguir viendo la reseña borrada durante 2 minutos hasta que la caché expire sola.
   await invalidateResenaCache(resena.movie_id)
 }
 
@@ -174,11 +184,11 @@ export const crearComentarioService = async (
   const id = asegurarId(reviewId)
   const resena = await reviewsRepository.findById(id)
   if (!resena) throw new NotFoundError("Reseña no encontrada")
-  const comentario = await reviewsRepository.createComment(
-    id,
-    userId,
-    data.content
-  )
+
+  // Moderación automática — analiza el comentario antes de guardarlo
+  await verificarContenido(data.content)
+
+  const comentario = await reviewsRepository.createComment(id,userId,data.content)
   // Devolvemos la review (para que el caller pueda emitir notificación)
   return { comentario, review: resena }
 }

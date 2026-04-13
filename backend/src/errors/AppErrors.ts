@@ -65,3 +65,10 @@ export class TooManyRequestsError extends ApplicationError {
     super(message, 429, "TOO_MANY_REQUESTS")
   }
 }
+
+/** 422 - Contenido inapropiado detectado por el sistema de moderación  OPENAI*/
+export class ContentModerationError extends ApplicationError {
+  constructor(message = "Contenido no permitido detectado") {
+    super(message, 422, "CONTENT_MODERATION_ERROR")
+  }
+}
