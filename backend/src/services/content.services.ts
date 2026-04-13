@@ -72,6 +72,11 @@ export const moderarTexto = async (texto: string): Promise<ModerationResult> => 
 
     const resultado = datos.results[0]
 
+    if (!resultado) {
+      console.warn("[Moderación] Respuesta inesperada de OpenAI, contenido no moderado")
+      return RESULTADO_LIMPIO
+    }
+
     // Casteamos el resultado de la API al tipo ModerationResult
     const objeto_moderado: ModerationResult = {
       flagged: resultado.flagged,
