@@ -79,39 +79,19 @@ router.delete(
 
 /* ==========================================================================
    COMENTARIOS — el dueño puede borrar el suyo, el admin cualquiera
-<<<<<<< Updated upstream
-=======
    --------------------------------------------------------------------------
    La lógica de negocio y las queries están en:
    - services/rbac.services.ts
    - repositories/RbacRepository.ts
->>>>>>> Stashed changes
    ========================================================================== */
 router.delete(
   "/comments/:id",
   middlewareAutenticacion,
   verificarPropietarioOPermiso(
     PERMISOS.BORRAR_COMENTARIOS_AJENOS,
-<<<<<<< Updated upstream
-    async (req: Request) => {
-      const comentario = await prisma.review_comments.findUnique({
-        where: { id: Number(req.params.id) },
-        select: { user_id: true },
-      })
-      return comentario?.user_id ?? null
-    }
-  ),
-  manejadorAsincrono(async (req, res) => {
-    await prisma.review_comments.delete({
-      where: { id: Number(req.params.id) },
-    })
-    res.json({ message: "Comentario eliminado correctamente" })
-  })
-=======
     async (req: Request) => rbacRepository.obtenerPropietarioComentario(Number(req.params.id))
   ),
   manejadorAsincrono(borrarComentario)
->>>>>>> Stashed changes
 )
 
 /* ==========================================================================
@@ -406,90 +386,15 @@ router.get(
 /* ==========================================================================
    ESTADÍSTICAS GENERALES — solo admin
    --------------------------------------------------------------------------
-<<<<<<< Updated upstream
-   Devuelve un resumen del estado de la plataforma en tiempo real.
-   Útil para el panel de administración — de un vistazo se ve el estado
-   general sin tener que consultar cada tabla por separado.
-=======
    La lógica de negocio y las queries están en:
    - services/rbac.services.ts
    - repositories/RbacRepository.ts
->>>>>>> Stashed changes
    ========================================================================== */
 router.get(
   "/stats",
   middlewareAutenticacion,
-<<<<<<< Updated upstream
-  // Reutilizamos VER_ACTIVIDAD_USUARIOS ya que es un permiso de solo lectura
-  // exclusivo de admin — no hace falta crear un permiso nuevo para esto
-  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
-  manejadorAsincrono(async (req, res) => {
-    // Calculamos las fechas de referencia para los filtros temporales
-    const ahora = new Date()
-    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1) // primer día del mes actual
-    const inicioSemana = new Date(ahora)
-    inicioSemana.setDate(ahora.getDate() - 7) // hace 7 días
-
-    
-    // Promise.all ejecuta todas las consultas a la BD en paralelo
-    // En vez de esperar una por una (lento), las lanzamos todas a la vez
-    // y esperamos a que terminen todas juntas (rápido)
-    const [
-      totalUsuarios,
-      usuariosAdmin,
-      usuariosEditor,
-      usuariosUser,
-      usuariosNuevosMes,
-      totalResenas,
-      resenasSemana,
-      reportesPendientes,
-      reportesResueltos,
-      reportesRechazados,
-      totalComentarios,
-    ] = await Promise.all([
-      prisma.users.count(),                                                        // total de usuarios registrados
-      prisma.users.count({ where: { role: "admin" } }),                            // cuántos son admin
-      prisma.users.count({ where: { role: "editor" } }),                           // cuántos son editor
-      prisma.users.count({ where: { role: "user" } }),                             // cuántos son usuarios normales
-      prisma.users.count({ where: { created_at: { gte: inicioMes } } }),           // registrados este mes
-      prisma.reviews.count(),                                                      // total de reseñas
-      prisma.reviews.count({ where: { created_at: { gte: inicioSemana } } }),      // reseñas esta semana
-      prisma.reports.count({ where: { status: "pending" } }),                      // reportes sin gestionar
-      prisma.reports.count({ where: { status: "resolved" } }),                     // reportes resueltos
-      prisma.reports.count({ where: { status: "rejected" } }),                     // reportes rechazados
-      prisma.review_comments.count(),                                              // total de comentarios
-    ])
-
-    // Estructuramos la respuesta en secciones para que sea fácil de consumir
-    // desde el frontend — cada sección agrupa datos relacionados
-    res.json({
-      usuarios: {
-        total: totalUsuarios,
-        por_rol: {
-          admin: usuariosAdmin,
-          editor: usuariosEditor,
-          user: usuariosUser,
-        },
-        nuevos_este_mes: usuariosNuevosMes,
-      },
-      resenas: {
-        total: totalResenas,
-        esta_semana: resenasSemana,         // útil para ver si hay actividad reciente
-      },
-      reportes: {
-        pendientes: reportesPendientes,     // estos son los que requieren atención inmediata
-        resueltos: reportesResueltos,
-        rechazados: reportesRechazados,
-      },
-      comentarios: {
-        total: totalComentarios,
-      },
-    })
-  })
-=======
   verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
   manejadorAsincrono(obtenerEstadisticas)
->>>>>>> Stashed changes
 )
 
 /**
