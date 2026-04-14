@@ -16,6 +16,7 @@ model diary_entries {
 
   @@index([movie_id], map: "movie_id")
   @@index([user_id], map: "user_id")
+  @@index([user_id, watched_date], map: "idx_diary_user_watched")
 }
 
 model favorites {
@@ -44,11 +45,18 @@ model follows {
 model movies_ref {
   id            Int             @id @default(autoincrement())
   tmdb_id       Int             @unique(map: "tmdb_id")
+  slug          String?         @unique(map: "slug") @db.VarChar(255)
+  is_public     Boolean         @default(true)
+  updated_at    DateTime        @default(now()) @updatedAt @db.Timestamp(0)
+  arco_movies   arco_movies[]
+  arco_progress user_arco_progress[]
+  curated_gallery_items curated_gallery_items[]
   diary_entries diary_entries[]
   favorites     favorites[]
   list_items    user_list_items[]
   reviews       reviews[]
   vault         vault[]
+  vault_social_entries vault_social_entries[]
   watchlist     watchlist[]
 }
 
@@ -64,6 +72,7 @@ model user_lists {
   items       user_list_items[]
 
   @@index([user_id], map: "idx_user_lists_user_id")
+  @@index([is_public, updated_at], map: "idx_user_lists_public_updated")
 }
 
 model user_list_items {
@@ -77,6 +86,7 @@ model user_list_items {
   @@unique([list_id, movie_id], map: "uniq_list_movie")
   @@index([list_id], map: "idx_user_list_items_list_id")
   @@index([movie_id], map: "idx_user_list_items_movie_id")
+  @@index([list_id, added_at], map: "idx_user_list_items_list_added")
 }
 
 model news {
@@ -99,6 +109,7 @@ model notifications {
 
   @@index([user_id], map: "idx_notifications_user_id")
   @@index([read], map: "idx_notifications_read")
+  @@index([user_id, read, created_at], map: "idx_notifications_user_read_created")
 }
 
 model payments {
@@ -124,12 +135,18 @@ model reports {
   review_id   Int?
   reason      String?         @db.Text
   status      reports_status? @default(pending)
+  resolution_note String?     @db.VarChar(500)
+  resolved_at DateTime?       @db.Timestamp(0)
+  resolved_by_user_id Int?
   created_at  DateTime        @default(now()) @db.Timestamp(0)
   users       users?          @relation(fields: [reporter_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "reports_ibfk_1")
+  resolved_by users?          @relation("reports_resolved_by", fields: [resolved_by_user_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
   reviews     reviews?        @relation(fields: [review_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "reports_ibfk_2")
 
   @@index([reporter_id], map: "reporter_id")
   @@index([review_id], map: "review_id")
+  @@index([status, created_at], map: "idx_reports_status_created")
+  @@index([resolved_by_user_id], map: "idx_reports_resolved_by")
 }
 
 model reviews {
@@ -138,6 +155,19 @@ model reviews {
   movie_id        Int
   content         String?           @db.Text
   rating          Decimal?          @db.Decimal(2, 1)
+  mode            ReviewModo        @default(RAPIDO)
+  veredicto       String?           @db.VarChar(280)
+  rating_direccion    Decimal?      @db.Decimal(2, 1)
+  rating_guion        Decimal?      @db.Decimal(2, 1)
+  rating_fotografia   Decimal?      @db.Decimal(2, 1)
+  rating_actuaciones  Decimal?      @db.Decimal(2, 1)
+  rating_banda_sonora Decimal?      @db.Decimal(2, 1)
+  cita_dialogo        String?       @db.VarChar(500)
+  cita_personaje      String?       @db.VarChar(120)
+  timestamps          Json?
+  contiene_spoilers   Boolean       @default(false)
+  es_critica_larga    Boolean       @default(false)
+  tiempo_lectura_min  Int?
   likes           Int?              @default(0)
   created_at      DateTime          @default(now()) @db.Timestamp(0)
   reports         reports[]
@@ -148,6 +178,8 @@ model reviews {
 
   @@index([movie_id], map: "movie_id")
   @@index([user_id], map: "user_id")
+  @@index([user_id, created_at], map: "idx_reviews_user_created")
+  @@index([mode, es_critica_larga], map: "idx_reviews_mode_long")
 }
 
 model subscriptions {
@@ -185,6 +217,7 @@ model users {
   role                                users_role?       @default(user)
   membership                          users_membership? @default(free)
   is_verified                         Boolean           @default(false)
+  is_public                           Boolean           @default(false)
   google_id                           String?           @unique(map: "google_id") @db.VarChar(255)
   two_factor_enabled                  Boolean           @default(false)
   two_factor_secret                   String?           @db.VarChar(255)
@@ -193,14 +226,23 @@ model users {
   created_at                          DateTime          @default(now()) @db.Timestamp(0)
   updated_at                          DateTime          @default(now()) @db.Timestamp(0)
   auth_tokens                         auth_tokens[]
+  arcos_created                       arcos[]           @relation("arcos_created_by")
+  arcos_reviewed                      arcos[]           @relation("arcos_reviewed_by")
+  arco_progress                       user_arco_progress[]
+  cinematographic_signature           cinematographic_signature?
+  curated_gallery_items               curated_gallery_items[]
   diary_entries                       diary_entries[]
   favorites                           favorites[]
+  feed_bookmarks                      user_feed_bookmarks[]
+  feed_hides                          user_feed_hides[]
+  feed_share_events                   feed_share_events[]
   follows_follows_follower_idTousers  follows[]         @relation("follows_follower_idTousers")
   follows_follows_following_idTousers follows[]         @relation("follows_following_idTousers")
   notifications_received              notifications[]   @relation("notifications_receiver")
   notifications_sent                  notifications[]   @relation("notifications_sender")
   payments                            payments[]
   reports                             reports[]
+  reports_resolved                    reports[]         @relation("reports_resolved_by")
   review_comments                     review_comments[]
   review_likes                        review_likes[]
   reviews                             reviews[]
@@ -209,6 +251,7 @@ model users {
   user_lists                          user_lists[]
   user_activity                       user_activity[]
   vault                               vault[]
+  vault_social_entries                vault_social_entries[]
   watchlist                           watchlist[]
 
   @@index([is_verified, created_at])
@@ -225,8 +268,9 @@ model vault {
   users      users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "vault_ibfk_1")
   movies_ref movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "vault_ibfk_2")
 
-  @@unique([user_id, movie_id], map: "user_id")
+  @@unique([user_id, movie_id], map: "uniq_vault_user_movie")
   @@index([movie_id], map: "movie_id")
+  @@index([user_id, added_at], map: "idx_vault_user_added")
 }
 
 model watchlist {
@@ -237,8 +281,89 @@ model watchlist {
   users      users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "watchlist_ibfk_1")
   movies_ref movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "watchlist_ibfk_2")
 
-  @@unique([user_id, movie_id], map: "user_id")
+  @@unique([user_id, movie_id], map: "uniq_watchlist_user_movie")
   @@index([movie_id], map: "movie_id")
+  @@index([user_id, added_at], map: "idx_watchlist_user_added")
+}
+
+model vault_social_entries {
+  id             Int                      @id @default(autoincrement())
+  user_id        Int
+  movie_id       Int?
+  entry_type     vault_social_entry_type
+  title          String                   @db.VarChar(180)
+  content        String                   @db.Text
+  cover_url      String?                  @db.VarChar(500)
+  duration_label String?                  @db.VarChar(32)
+  likes_count    Int                      @default(0)
+  comments_count Int                      @default(0)
+  is_public      Boolean                  @default(true)
+  created_at     DateTime                 @default(now()) @db.Timestamp(0)
+  updated_at     DateTime                 @default(now()) @db.Timestamp(0)
+  users          users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  movies_ref     movies_ref?              @relation(fields: [movie_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+
+  @@index([user_id, created_at], map: "idx_vault_social_user_created")
+  @@index([is_public, created_at], map: "idx_vault_social_public_created")
+  @@index([entry_type, created_at], map: "idx_vault_social_type_created")
+  @@index([movie_id], map: "idx_vault_social_movie")
+}
+
+model arcos {
+  id                 Int                  @id @default(autoincrement())
+  created_by_user_id Int
+  reviewed_by_user_id Int?
+  slug               String               @unique(map: "slug") @db.VarChar(120)
+  title              String               @db.VarChar(180)
+  description        String?              @db.Text
+  poster_url         String?              @db.VarChar(500)
+  level              String               @default("INTERMEDIO") @db.VarChar(20)
+  moderation_status  arcos_moderation_status @default(draft)
+  review_note        String?              @db.VarChar(500)
+  cinevault_badge    String?              @db.VarChar(120)
+  is_official        Boolean              @default(false)
+  reviewed_at        DateTime?            @db.Timestamp(0)
+  created_at         DateTime             @default(now()) @db.Timestamp(0)
+  updated_at         DateTime             @default(now()) @db.Timestamp(0)
+  arco_movies        arco_movies[]
+  user_arco_progress user_arco_progress[]
+  created_by         users                @relation("arcos_created_by", fields: [created_by_user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  reviewed_by        users?               @relation("arcos_reviewed_by", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+
+  @@index([is_official], map: "idx_arcos_is_official")
+  @@index([created_by_user_id], map: "idx_arcos_created_by")
+  @@index([reviewed_by_user_id], map: "idx_arcos_reviewed_by")
+  @@index([moderation_status, created_at], map: "idx_arcos_status_created")
+}
+
+model arco_movies {
+  id         Int        @id @default(autoincrement())
+  arco_id    Int
+  movie_id   Int
+  order_index Int
+  note       String?    @db.Text
+  is_optional Boolean   @default(false)
+  arcos      arcos      @relation(fields: [arco_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  movies_ref movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([arco_id, movie_id], map: "uniq_arco_movie")
+  @@unique([arco_id, order_index], map: "uniq_arco_order")
+  @@index([movie_id], map: "idx_arco_movies_movie_id")
+}
+
+model user_arco_progress {
+  id           Int        @id @default(autoincrement())
+  user_id      Int
+  arco_id      Int
+  movie_id     Int
+  completed_at DateTime   @default(now()) @db.Timestamp(0)
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  arcos        arcos      @relation(fields: [arco_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  movies_ref   movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([user_id, arco_id, movie_id], map: "uniq_user_arco_movie")
+  @@index([arco_id], map: "idx_user_arco_progress_arco_id")
+  @@index([movie_id], map: "idx_user_arco_progress_movie_id")
 }
 
 model auth_tokens {
@@ -281,6 +406,8 @@ model review_likes {
   @@unique([user_id, review_id], map: "unique_user_review_like")
   @@index([review_id], map: "idx_review_id")
   @@index([user_id], map: "idx_user_id")
+  @@index([user_id, created_at], map: "idx_review_likes_user_created")
+  @@index([review_id, created_at], map: "idx_review_likes_review_created")
 }
 
 model review_comments {
@@ -361,4 +488,109 @@ enum users_membership {
 enum auth_tokens_type {
   VERIFY_EMAIL
   RESET_PASSWORD
+}
+
+enum ReviewModo {
+  RAPIDO
+  ESTANDAR
+  CRITICO
+}
+
+enum arcos_moderation_status {
+  draft
+  pending_review
+  approved
+  rejected
+  archived
+}
+
+model cinematographic_signature {
+  id                    Int      @id @default(autoincrement())
+  user_id               Int      @unique(map: "uniq_signature_user")
+  pivotal_film          String?  @db.VarChar(255)
+  pivotal_film_detail   String?  @db.VarChar(255)
+  formative_director    String?  @db.VarChar(255)
+  formative_director_detail String? @db.VarChar(255)
+  unforgettable_scene   String?  @db.VarChar(255)
+  unforgettable_scene_detail String? @db.VarChar(255)
+  cinema_turning_year   String?  @db.VarChar(255)
+  cinema_turning_year_detail String? @db.VarChar(255)
+  created_at            DateTime @default(now()) @db.Timestamp(0)
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  users                 users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([user_id], map: "idx_signature_user_id")
+}
+
+model curated_gallery_items {
+  id          Int        @id @default(autoincrement())
+  user_id     Int
+  movie_id    Int
+  order_index Int
+  note        String?    @db.VarChar(255)
+  created_at  DateTime   @default(now()) @db.Timestamp(0)
+  updated_at  DateTime   @default(now()) @updatedAt @db.Timestamp(0)
+  users       users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  movies_ref  movies_ref @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([user_id, movie_id], map: "uniq_curated_gallery_user_movie")
+  @@unique([user_id, order_index], map: "uniq_curated_gallery_user_order")
+  @@index([movie_id], map: "idx_curated_gallery_movie_id")
+  @@index([user_id], map: "idx_curated_gallery_user_id")
+}
+
+model user_feed_bookmarks {
+  id         Int            @id @default(autoincrement())
+  user_id    Int
+  item_type  feed_item_type
+  item_id    Int
+  created_at DateTime       @default(now()) @db.Timestamp(0)
+  users      users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([user_id, item_type, item_id], map: "uniq_feed_bookmark_user_item")
+  @@index([user_id, created_at], map: "idx_feed_bookmark_user_created")
+  @@index([item_type, item_id], map: "idx_feed_bookmark_item")
+}
+
+model user_feed_hides {
+  id         Int            @id @default(autoincrement())
+  user_id    Int
+  item_type  feed_item_type
+  item_id    Int
+  created_at DateTime       @default(now()) @db.Timestamp(0)
+  users      users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([user_id, item_type, item_id], map: "uniq_feed_hide_user_item")
+  @@index([user_id, created_at], map: "idx_feed_hide_user_created")
+  @@index([item_type, item_id], map: "idx_feed_hide_item")
+}
+
+model feed_share_events {
+  id         Int            @id @default(autoincrement())
+  user_id    Int
+  item_type  feed_item_type
+  item_id    Int
+  channel    String?        @db.VarChar(64)
+  created_at DateTime       @default(now()) @db.Timestamp(0)
+  users      users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([user_id, created_at], map: "idx_feed_share_user_created")
+  @@index([item_type, item_id, created_at], map: "idx_feed_share_item_created")
+}
+
+enum feed_item_type {
+  review
+  vault
+  watchlist
+  discovery
+  tonight
+  list
+  quote
+}
+
+enum vault_social_entry_type {
+  reflexion
+  edit
+  critica
+  recomendacion
 }

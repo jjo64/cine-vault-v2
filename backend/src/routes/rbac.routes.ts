@@ -17,6 +17,10 @@ import { PERMISOS } from "../config/permisos.js"
 import { prisma } from "../lib/prisma.js"
 import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
+import { obtenerEstadisticas, borrarComentario } from "../controllers/RbacController.js"
+import { rbacRepository } from "../repositories/RbacRepository.js"
+
+
 /**
  * @swagger
  * tags:
@@ -67,6 +71,27 @@ router.delete(
     await prisma.reviews.delete({ where: { id: Number(req.params.id) } })
     res.json({ message: "Review eliminada correctamente" })
   })
+)
+
+// El dueño del comentario puede borrarlo
+// Un admin puede borrar cualquier comentario
+// Un usuario normal NO puede borrar comentarios ajenos
+
+/* ==========================================================================
+   COMENTARIOS — el dueño puede borrar el suyo, el admin cualquiera
+   --------------------------------------------------------------------------
+   La lógica de negocio y las queries están en:
+   - services/rbac.services.ts
+   - repositories/RbacRepository.ts
+   ========================================================================== */
+router.delete(
+  "/comments/:id",
+  middlewareAutenticacion,
+  verificarPropietarioOPermiso(
+    PERMISOS.BORRAR_COMENTARIOS_AJENOS,
+    async (req: Request) => rbacRepository.obtenerPropietarioComentario(Number(req.params.id))
+  ),
+  manejadorAsincrono(borrarComentario)
 )
 
 /* ==========================================================================
@@ -356,6 +381,20 @@ router.get(
     })
     res.json(actividad)
   })
+)
+
+/* ==========================================================================
+   ESTADÍSTICAS GENERALES — solo admin
+   --------------------------------------------------------------------------
+   La lógica de negocio y las queries están en:
+   - services/rbac.services.ts
+   - repositories/RbacRepository.ts
+   ========================================================================== */
+router.get(
+  "/stats",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerEstadisticas)
 )
 
 /**

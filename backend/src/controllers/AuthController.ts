@@ -110,7 +110,8 @@ export const controladorCallback = async (req: Request, res: Response) => {
   res.cookie("refresh_token", tokenRefresco, COOKIE_OPTIONS)
   res.cookie("access_token", tokenAcceso, ACCESS_COOKIE_OPTIONS)
 
-  res.redirect(`${process.env.FRONTEND_URL}/auth/callback`)
+  const frontendBase = process.env.FRONTEND_URL || "http://localhost:5173"
+  res.redirect(`${frontendBase}/profile`)
 }
 
 export const activar2FA = async (req: Request, res: Response) => {

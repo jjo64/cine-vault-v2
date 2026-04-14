@@ -53,6 +53,22 @@ export class UserRepository implements IUserRepository {
     })
     return user as UserWithoutPassword | null
   }
+
+  async findAll(): Promise<UserWithoutPassword[]> {
+    return prisma.users.findMany({
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        avatar_url: true,
+      },
+    }) as Promise<UserWithoutPassword[]>
+  }
+
+  async deleteById(id: number): Promise<void> {
+    await prisma.users.delete({ where: { id } })
+  }
 }
 
 // Exportamos en formato singleton por comodidad y Node.js patterns (Sin DI pesada por ahora)
