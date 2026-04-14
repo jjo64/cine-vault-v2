@@ -5,6 +5,25 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [14-04-2026] — Reorganización del proyecto frontend
+
+### Descripción
+El panel de administración se ha movido a la carpeta correcta dentro
+del repositorio para evitar duplicidades y simplificar el flujo de trabajo.
+
+### Cambios
+- `admin-panel/` ahora vive dentro de `cine-vault-v2/` — el repositorio principal
+- Eliminada la carpeta `admin-panel` independiente fuera del repositorio
+- A partir de ahora el frontend se arranca desde `cine-vault-v2/admin-panel`
+
+### Cómo arrancar el panel
+```bash
+cd cine-vault-v2/admin-panel
+npm install
+npm run dev
+# Acceder en http://localhost:5173
+```
+
 ## [14-04-2026] — Estadísticas de sesiones por navegador y dispositivo
 
 ### Descripción
