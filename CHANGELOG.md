@@ -5,6 +5,46 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [14-04-2026] — Mejoras visuales del panel de administración
+
+### Descripción
+Rediseño del panel de administración para mostrar los datos de forma
+visual y amigable en vez de JSON crudo. Se han creado componentes React
+reutilizables para cada sección, listos para ser integrados en el
+frontend real de CineVault.
+
+### Archivos creados
+- `admin-panel/src/components/StatsCard.tsx` — tarjeta individual de estadística
+- `admin-panel/src/components/StatsPanel.tsx` — panel de estadísticas generales
+- `admin-panel/src/components/ReportsTable.tsx` — tabla de reportes con estado
+- `admin-panel/src/components/UsersTable.tsx` — tabla de usuarios con rol y membresía
+- `admin-panel/src/components/PaymentsTable.tsx` — tabla de pagos con estado
+- `admin-panel/src/components/ActivityTable.tsx` — tabla de actividad de usuarios
+- `admin-panel/src/components/SessionsChart.tsx` — visualización de sesiones con barras de progreso
+
+### Archivos modificados
+- `admin-panel/src/App.tsx` — conecta cada sección con su componente visual
+
+### Componentes y secciones
+
+| Sección | Componente | Endpoint |
+|---|---|---|
+| 📊 Estadísticas | StatsPanel | GET /api/rbac/stats |
+| 🚨 Reportes | ReportsTable | GET /api/rbac/reports |
+| 👥 Usuarios | UsersTable | GET /api/users |
+| 💰 Pagos | PaymentsTable | GET /api/rbac/payments |
+| 📋 Actividad | ActivityTable | GET /api/rbac/users/activity |
+| 🌐 Sesiones | SessionsChart | GET /api/rbac/stats/sessions |
+
+### Características de los componentes
+- Tipados con TypeScript — listos para integrar en el frontend real
+- Estilados con Tailwind CSS
+- Badges de colores por estado (pending/resolved/rejected, admin/editor/user, free/vip/pro)
+- Resúmenes con contadores en la cabecera de cada tabla
+- Barras de progreso con porcentajes para sesiones
+- Filas alternadas para mejor legibilidad
+- Sidebar con sección activa resaltada
+
 ## [14-04-2026] — Reorganización del proyecto frontend
 
 ### Descripción
@@ -87,7 +127,7 @@ del backend. Construido con React, TypeScript, Vite y Tailwind CSS.
 - ✅ Usuarios (`GET /api/users`)
 - ✅ Pagos (`GET /api/rbac/payments`)
 - ✅ Actividad de usuarios (`GET /api/rbac/users/activity`)
-- ✅ Sesiones por navegador y dispositivo (`GET /api/rbac/stats/sessions`) — añadido 14-04-2026
+- ✅ Sesiones por navegador y dispositivo (`GET /api/rbac/stats/sessions`) — añadido ## [14-04-2026]
 - 🔲 Noticias — pendiente de implementar `GET /api/rbac/news`
 
 ### Configuración necesaria

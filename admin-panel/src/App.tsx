@@ -1,6 +1,15 @@
 import { useState } from "react"
+import StatsPanel from "./components/StatsPanel"
+import ReportsTable from "./components/ReportsTable"
+import UsersTable from "./components/UsersTable"
+import PaymentsTable from "./components/PaymentsTable"
+import ActivityTable from "./components/ActivityTable"
+import SessionsChart from "./components/SessionsChart"
+
 
 const API = "http://localhost:4000/api"
+//const API = "http://192.168.1.15:4000/api"  para pruebas login movil
+
 
 export default function App() {
   const [token, setToken] = useState("")
@@ -9,6 +18,8 @@ export default function App() {
   const [vista, setVista] = useState("login")
   const [datos, setDatos] = useState<any>(null)
   const [error, setError] = useState("")
+  const [endpoint, setEndpoint] = useState("")
+  
 
   // LOGIN
   const login = async () => {
@@ -32,6 +43,7 @@ export default function App() {
   const llamar = async (endpoint: string) => {
     setError("")
     setDatos(null)
+    setEndpoint(endpoint)
     const res = await fetch(`${API}${endpoint}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -124,10 +136,26 @@ export default function App() {
           {!datos && !error && (
             <p className="text-gray-500">Selecciona una sección del menú</p>
           )}
-          {datos && (
-            <pre className="bg-gray-900 p-6 rounded-xl text-green-400 text-sm overflow-auto">
-              {JSON.stringify(datos, null, 2)}
-            </pre>
+          {datos && vista === "panel" && (
+            <>
+              {endpoint === "/rbac/stats" ? (
+                  <StatsPanel datos={datos} />
+                ) : endpoint === "/rbac/reports" ? (
+                  <ReportsTable datos={datos} />
+                ) : endpoint === "/users" ? (
+                  <UsersTable datos={datos} />
+                ) : endpoint === "/rbac/payments" ? (
+                  <PaymentsTable datos={datos} />
+                ) : endpoint === "/rbac/users/activity" ? (
+                  <ActivityTable datos={datos} />
+                ) : endpoint === "/rbac/stats/sessions" ? (
+                  <SessionsChart datos={datos} />
+                ) : (
+                <pre className="bg-gray-900 p-6 rounded-xl text-green-400 text-sm overflow-auto">
+                  {JSON.stringify(datos, null, 2)}
+                </pre>
+              )}
+            </>
           )}
         </div>
       </div>
