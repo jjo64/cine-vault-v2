@@ -87,6 +87,7 @@ del backend. Construido con React, TypeScript, Vite y Tailwind CSS.
 - ✅ Usuarios (`GET /api/users`)
 - ✅ Pagos (`GET /api/rbac/payments`)
 - ✅ Actividad de usuarios (`GET /api/rbac/users/activity`)
+- ✅ Sesiones por navegador y dispositivo (`GET /api/rbac/stats/sessions`) — añadido 14-04-2026
 - 🔲 Noticias — pendiente de implementar `GET /api/rbac/news`
 
 ### Configuración necesaria
