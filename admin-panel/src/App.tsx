@@ -101,6 +101,8 @@ export default function App() {
             { label: "💰 Pagos", endpoint: "/rbac/payments" },
             { label: "📰 Noticias", endpoint: "/rbac/news" },
             { label: "📋 Actividad", endpoint: "/rbac/users/activity" },
+            { label: "🌐 Sesiones", endpoint: "/rbac/stats/sessions" },
+            
           ].map(item => (
             <button
               key={item.endpoint}
