@@ -179,6 +179,7 @@ export const iniciarSesionService = async (
   context?: {
     trustedDeviceToken?: string
     userAgent?: string
+    ipAddress?: string
   }
 ): Promise<LoginResult> => {
   if (!username || !password) {
@@ -213,7 +214,12 @@ export const iniciarSesionService = async (
         usuario.role as string,
         usuario.is_verified
       )
-      const { token: tokenRefresco } = await crearTokenRefresco(usuario.id)
+      const { token: tokenRefresco } = await crearTokenRefresco(
+  usuario.id,
+  context?.userAgent,
+  context?.ipAddress
+
+)
       return { type: "OK", tokenAcceso, tokenRefresco }
     }
 
@@ -230,8 +236,12 @@ export const iniciarSesionService = async (
     usuario.role as string,
     usuario.is_verified
   )
-  const { token: tokenRefresco } = await crearTokenRefresco(usuario.id)
+const { token: tokenRefresco } = await crearTokenRefresco(
+  usuario.id,
+  context?.userAgent,
+  context?.ipAddress
 
+)
   return { type: "OK", tokenAcceso, tokenRefresco }
 }
 

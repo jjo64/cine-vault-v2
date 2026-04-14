@@ -19,6 +19,16 @@ export const obtenerEstadisticas = async (req: Request, res: Response) => {
 }
 
 /* --------------------------------------------------------------------------
+   ESTADÍSTICAS DE SESIONES — navegadores y dispositivos
+   Llama al servicio que parsea los user_agents y devuelve las estadísticas
+   -------------------------------------------------------------------------- */
+
+export const obtenerEstadisticasSesiones = async (req: Request, res: Response) => {
+  const stats = await rbacService.obtenerEstadisticasSessionsService()
+  res.json(stats)
+}
+
+/* --------------------------------------------------------------------------
    BORRAR COMENTARIO AJENO
    Extrae el id del comentario del request y llama al servicio
    -------------------------------------------------------------------------- */

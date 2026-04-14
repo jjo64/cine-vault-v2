@@ -56,6 +56,24 @@ export const rbacRepository = {
       totalComentarios,
     }
   },
+  
+  /* ------------------------------------------------------------------------
+   ESTADÍSTICAS DE SESIONES — navegadores y dispositivos
+   ------------------------------------------------------------------------
+   Obtiene todas las sesiones activas con su user_agent.
+   El servicio se encargará de parsear y agrupar los datos.
+   No procesamos el user_agent aquí — el repositorio solo devuelve
+   datos en bruto, sin lógica de negocio.
+   ---------------------------------------------------------------------- */
+obtenerSesiones: async () => {
+  return prisma.sessions.findMany({
+    select: {
+      user_agent: true,  // el string del navegador/dispositivo
+      ip_address: true,  // la IP de conexión
+      created_at: true,  // cuándo se creó la sesión
+    },
+  })
+},
 
   /* ------------------------------------------------------------------------
    COMENTARIOS

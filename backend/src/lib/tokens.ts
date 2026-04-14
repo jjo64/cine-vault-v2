@@ -59,7 +59,11 @@ export const crearTokenAcceso = (
  * Genera un Refresh Token, lo hashea y persiste la sesión en la DB.
  * Solo el hash se usa para verificaciones — el token original va en la cookie.
  */
-export const crearTokenRefresco = async (idUsuario: number) => {
+export const crearTokenRefresco = async (
+  idUsuario: number,
+  userAgent?: string,   // navegador del usuario
+  ipAddress?: string    // IP del usuario
+) => {
   const idSesion = crypto.randomUUID()
   const token = jwt.sign(
     { id_session: idSesion, user_id: idUsuario } as PayloadRefresco,
@@ -75,6 +79,8 @@ export const crearTokenRefresco = async (idUsuario: number) => {
     expires_at: new Date(
       Date.now() + DIAS_EXPIRACION_TOKEN_REFRESCO * 24 * 60 * 60 * 1000
     ),
+    user_agent: userAgent ?? null,   // guardamos el navegador
+    ip_address: ipAddress ?? null,   // guardamos la IP
   })
 
   return { token, idSesion }

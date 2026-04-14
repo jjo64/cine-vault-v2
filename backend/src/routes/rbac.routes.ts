@@ -17,8 +17,9 @@ import { PERMISOS } from "../config/permisos.js"
 import { prisma } from "../lib/prisma.js"
 import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
-import { obtenerEstadisticas, borrarComentario } from "../controllers/RbacController.js"
 import { rbacRepository } from "../repositories/RbacRepository.js"
+import { obtenerEstadisticas, borrarComentario, obtenerEstadisticasSesiones } from "../controllers/RbacController.js"
+
 
 
 /**
@@ -395,6 +396,13 @@ router.get(
   middlewareAutenticacion,
   verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
   manejadorAsincrono(obtenerEstadisticas)
+)
+
+router.get(
+  "/stats/sessions",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerEstadisticasSesiones)
 )
 
 /**

@@ -21,6 +21,7 @@ export const iniciarSesion = async (req: Request, res: Response) => {
   const resultado = await authService.iniciarSesionService(username, password, {
     trustedDeviceToken: req.cookies?.trusted_device,
     userAgent: req.get("user-agent") || "",
+    ipAddress: req.ip || "", 
   })
 
   if (resultado.type === "2FA_REQUIRED") {

@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { rbacRepository } from "../repositories/RbacRepository.js"
+import { UAParser } from "ua-parser-js"
 
 export const rbacService = {
 
@@ -54,6 +55,38 @@ export const rbacService = {
       },
     }
   },
+
+  obtenerEstadisticasSessionsService: async () => {
+  // Pedimos los datos en bruto al repositorio
+  const sesiones = await rbacRepository.obtenerSesiones()
+
+  // Parseamos cada user_agent con ua-parser-js
+  const parser = new UAParser()
+  const navegadores: Record<string, number> = {}
+  const dispositivos: Record<string, number> = {}
+
+  for (const sesion of sesiones) {
+    if (!sesion.user_agent) continue
+
+    // Parseamos el string feo en datos legibles
+    parser.setUA(sesion.user_agent)
+    const resultado = parser.getResult()
+
+    // Contamos navegadores
+    const navegador = resultado.browser.name ?? "Desconocido"
+    navegadores[navegador] = (navegadores[navegador] ?? 0) + 1
+
+    // Contamos dispositivos — si no tiene tipo es desktop
+    const dispositivo = resultado.device.type ?? "desktop"
+    dispositivos[dispositivo] = (dispositivos[dispositivo] ?? 0) + 1
+  }
+
+  return {
+    sesiones_activas: sesiones.length,
+    navegadores,
+    dispositivos,
+  }
+},
 
 /* ------------------------------------------------------------------------
  COMENTARIOS
