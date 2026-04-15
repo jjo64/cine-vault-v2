@@ -3,6 +3,8 @@ import Stripe from "stripe"
 import { paymentsRepository } from "../repositories/PaymentsRepository.js"
 import { NotFoundError, ValidationError } from "../errors/AppErrors.js"
 import { redis } from "../lib/redis.js"
+import { emitirNotificacionService } from "./notifications.services.js"
+
 
 /* ==========================================================================
    PAYMENTS SERVICE
@@ -111,103 +113,135 @@ export async function processWebhookEventService(
   if (seen !== "OK") return
 
   switch (event.type) {
-    // Pago inicial completado → crear suscripción y pago
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session
-      const userId = Number(session.metadata?.userId)
-      const plan = session.metadata?.plan as "vip" | "pro"
+  // Pago inicial completado → crear suscripción y pago
+  case "checkout.session.completed": {
+  const session = event.data.object as Stripe.Checkout.Session
+  const userId = Number(session.metadata?.userId)
+  const plan = session.metadata?.plan as "vip" | "pro"
 
-      const hoy = new Date()
-      const finSuscripcion = new Date()
-      finSuscripcion.setMonth(finSuscripcion.getMonth() + 1)
-
-      await paymentsRepository.checkoutCompleted({
-        userId,
-        plan,
-        startDate: hoy,
-        endDate: finSuscripcion,
-        stripeSubscriptionId: session.subscription as string,
-        amountTotal: (session.amount_total ?? 0) / 100,
-        currency: session.currency ?? "eur",
-        providerPaymentId: session.payment_intent as string,
-      })
-      break
-    }
-
-    // Renovación mensual → actualizar end_date
-    case "invoice.payment_succeeded": {
-      const invoice = event.data.object as Stripe.Invoice
-      const stripeSubId = (invoice as any).subscription as string
-
-      // Solo procesar renovaciones, no el pago inicial
-      if (invoice.billing_reason === "subscription_create") break
-
-      const nuevaFechaFin = new Date()
-      nuevaFechaFin.setMonth(nuevaFechaFin.getMonth() + 1)
-      const sub =
-        await paymentsRepository.findSubscriptionByProviderId(stripeSubId)
-      if (sub) {
-        await paymentsRepository.renewSubscription(stripeSubId, nuevaFechaFin)
-        await paymentsRepository.recordPayment({
-          userId: sub.user_id,
-          subscriptionId: sub.id,
-          amount: (invoice.amount_paid ?? 0) / 100,
-          currency: invoice.currency ?? "eur",
-          providerPaymentId: (invoice as any).payment_intent ?? invoice.id,
-          status: "paid",
-        })
-      }
-      break
-    }
-
-    case "invoice.payment_failed": {
-      const invoice = event.data.object as Stripe.Invoice
-      const stripeSubId = (invoice as any).subscription as string
-      const sub =
-        await paymentsRepository.findSubscriptionByProviderId(stripeSubId)
-      if (sub) {
-        await paymentsRepository.updateSubscriptionStatus(
-          stripeSubId,
-          "expired"
-        )
-        await paymentsRepository.recordPayment({
-          userId: sub.user_id,
-          subscriptionId: sub.id,
-          amount: (invoice.amount_due ?? 0) / 100,
-          currency: invoice.currency ?? "eur",
-          providerPaymentId: (invoice as any).payment_intent ?? invoice.id,
-          status: "failed",
-        })
-      }
-      break
-    }
-
-    case "customer.subscription.updated": {
-      const subscription = event.data.object as Stripe.Subscription & {
-        current_period_end?: number
-      }
-      const endDate = subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000)
-        : undefined
-      const status = mapStripeStatus(subscription.status)
-      await paymentsRepository.updateSubscriptionStatus(
-        subscription.id,
-        status,
-        endDate
-      )
-      break
-    }
-
-    // Cancelación → bajar a free
-    case "customer.subscription.deleted": {
-      const subscription = event.data.object as Stripe.Subscription
-      await paymentsRepository.cancelSubscription(subscription.id)
-      break
-    }
-
-    default:
-      console.log(`Evento Stripe no manejado: ${event.type}`)
+  // Validar que los metadatos existen PRUEBA STRIPE SANDBOX
+  if (!userId || !plan) {
+    console.warn("[Stripe] checkout.session.completed sin userId o plan en metadata")
+    break
   }
+
+    const hoy = new Date()
+    const finSuscripcion = new Date()
+    finSuscripcion.setMonth(finSuscripcion.getMonth() + 1)
+
+    await paymentsRepository.checkoutCompleted({
+      userId,
+      plan,
+      startDate: hoy,
+      endDate: finSuscripcion,
+      stripeSubscriptionId: session.subscription as string,
+      amountTotal: (session.amount_total ?? 0) / 100,
+      currency: session.currency ?? "eur",
+      providerPaymentId: session.payment_intent as string,
+    })
+
+    // Notificar al usuario que su suscripción fue activada
+    await emitirNotificacionService({
+      user_id: userId,
+      sender_id: 0,
+      type: "payment_success",
+    })
+    break
+  }
+
+  // Renovación mensual → actualizar end_date
+  case "invoice.payment_succeeded": {
+    const invoice = event.data.object as Stripe.Invoice
+    const stripeSubId = (invoice as any).subscription as string
+
+    // Solo procesar renovaciones, no el pago inicial
+    if (invoice.billing_reason === "subscription_create") break
+
+    const nuevaFechaFin = new Date()
+    nuevaFechaFin.setMonth(nuevaFechaFin.getMonth() + 1)
+    const sub = await paymentsRepository.findSubscriptionByProviderId(stripeSubId)
+    if (sub) {
+      await paymentsRepository.renewSubscription(stripeSubId, nuevaFechaFin)
+      await paymentsRepository.recordPayment({
+        userId: sub.user_id,
+        subscriptionId: sub.id,
+        amount: (invoice.amount_paid ?? 0) / 100,
+        currency: invoice.currency ?? "eur",
+        providerPaymentId: (invoice as any).payment_intent ?? invoice.id,
+        status: "paid",
+      })
+
+      // Notificar al usuario que su suscripción fue renovada
+      await emitirNotificacionService({
+        user_id: sub.user_id,
+        sender_id: 0,
+        type: "payment_success",
+      })
+    }
+    break
+  }
+
+  case "invoice.payment_failed": {
+    const invoice = event.data.object as Stripe.Invoice
+    const stripeSubId = (invoice as any).subscription as string
+    const sub = await paymentsRepository.findSubscriptionByProviderId(stripeSubId)
+    if (sub) {
+      await paymentsRepository.updateSubscriptionStatus(stripeSubId, "expired")
+      await paymentsRepository.recordPayment({
+        userId: sub.user_id,
+        subscriptionId: sub.id,
+        amount: (invoice.amount_due ?? 0) / 100,
+        currency: invoice.currency ?? "eur",
+        providerPaymentId: (invoice as any).payment_intent ?? invoice.id,
+        status: "failed",
+      })
+
+      // Notificar al usuario que su pago falló
+      await emitirNotificacionService({
+        user_id: sub.user_id,
+        sender_id: 0,
+        type: "payment_failed",
+      })
+    }
+    break
+  }
+
+  case "customer.subscription.updated": {
+    const subscription = event.data.object as Stripe.Subscription & {
+      current_period_end?: number
+    }
+    const endDate = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : undefined
+    const status = mapStripeStatus(subscription.status)
+    await paymentsRepository.updateSubscriptionStatus(
+      subscription.id,
+      status,
+      endDate
+    )
+    break
+  }
+
+  // Cancelación → bajar a free
+  case "customer.subscription.deleted": {
+    const subscription = event.data.object as Stripe.Subscription
+    await paymentsRepository.cancelSubscription(subscription.id)
+
+    // Notificar al usuario que su suscripción fue cancelada
+    const sub = await paymentsRepository.findSubscriptionByProviderId(subscription.id)
+    if (sub) {
+      await emitirNotificacionService({
+        user_id: sub.user_id,
+        sender_id: 0,
+        type: "subscription_cancelled",
+      })
+    }
+    break
+  }
+
+  default:
+    console.log(`Evento Stripe no manejado: ${event.type}`)
+}
 }
 
 const mapStripeStatus = (

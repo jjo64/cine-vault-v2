@@ -5,6 +5,37 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [15-04-2026] — Notificaciones de pagos via Socket.IO
+
+### Descripción
+Integración de notificaciones en tiempo real cuando Stripe procesa
+eventos de pago. Los usuarios reciben alertas al instante cuando
+su suscripción cambia de estado.
+
+### Archivos modificados
+- `backend/src/services/payments.services.ts` — notificaciones en webhooks de Stripe y validación de metadata
+- `backend/prisma/schema.prisma` — nuevos tipos de notificación
+
+### Añadido
+- `payment_success` — notifica cuando la suscripción es activada o renovada
+- `payment_failed` — notifica cuando el pago falla
+- `subscription_cancelled` — notifica cuando la suscripción es cancelada
+- Validación de metadata en `checkout.session.completed` — evita errores cuando faltan `userId` o `plan`
+
+### Cuándo se emite cada notificación
+- `checkout.session.completed` → payment_success
+- `invoice.payment_succeeded` → payment_success (renovación mensual)
+- `invoice.payment_failed` → payment_failed
+- `customer.subscription.deleted` → subscription_cancelled
+
+### BD
+- Añadidos `payment_success`, `payment_failed`, `subscription_cancelled` al enum `notifications_type` via `npx prisma db push`
+
+### Probado con Stripe CLI
+- `stripe trigger checkout.session.completed` → webhook recibido con [200]
+- Validación de metadata funciona correctamente
+- En producción real el userId y plan llegan en los metadatos de la sesión
+
 ## [15-04-2026] — Baneo, warning y corrección de bugs
 
 ### Descripción

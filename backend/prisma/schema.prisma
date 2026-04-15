@@ -429,6 +429,9 @@ enum notifications_type {
   comment
   report_resolved
   warning
+  payment_success
+  payment_failed
+  subscription_cancelled
 }
 
 enum subscriptions_plan {
