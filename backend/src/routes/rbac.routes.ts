@@ -18,8 +18,7 @@ import { prisma } from "../lib/prisma.js"
 import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
 import { rbacRepository } from "../repositories/RbacRepository.js"
-import { obtenerEstadisticas, borrarComentario, obtenerEstadisticasSesiones, banearUsuario, enviarWarning } from "../controllers/RbacController.js"
-
+import { obtenerEstadisticas, borrarComentario, obtenerEstadisticasSesiones, banearUsuario, enviarWarning, obtenerHistorialModeracion } from "../controllers/RbacController.js"
 
 /**
  * @swagger
@@ -424,6 +423,17 @@ router.get(
   middlewareAutenticacion,
   verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
   manejadorAsincrono(obtenerEstadisticasSesiones)
+)
+
+/* ------------------------------------------------------------------------
+   HISTORIAL DE MODERACIÓN — solo admin
+   Muestra las últimas acciones de moderación tomadas por los admins
+   ---------------------------------------------------------------------- */
+router.get(
+  "/moderation/history",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerHistorialModeracion)
 )
 
 /**

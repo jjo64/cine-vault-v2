@@ -5,6 +5,31 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [15-04-2026] — Historial de moderación y refactorización SOLID
+
+### Descripción
+Añadido historial de acciones de moderación en el panel de admin.
+Refactorización de content.services.ts para seguir el patrón SOLID
+— las queries a Prisma se mueven al repositorio.
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — nuevos métodos: obtenerDatosUsuarioModeracion, registrarAccionModeracion, obtenerHistorialModeracion
+- `backend/src/services/rbac.services.ts` — nuevo servicio obtenerHistorialModeracionService, adminId en banear y warning
+- `backend/src/controllers/RbacController.ts` — nuevo endpoint obtenerHistorialModeracion, adminId en banear y warning
+- `backend/src/routes/rbac.routes.ts` — nueva ruta GET /rbac/moderation/history
+- `backend/src/services/content.services.ts` — refactorizado: usa rbacRepository en vez de prisma directo
+- `admin-panel/src/components/ModerationTable.tsx` — nuevo componente
+- `admin-panel/src/App.tsx` — nueva sección 🛡️ Moderación
+
+### Añadido
+- `GET /api/rbac/moderation/history` — historial de las últimas 100 acciones de moderación
+- Las acciones de baneo y warning se registran automáticamente con el ID del admin
+- Los bloqueos de la IA se registran como "🤖 Bot Moderación"
+
+### Refactorización SOLID
+- `content.services.ts` ya no importa Prisma directamente
+- La query de datos del usuario se movió a `RbacRepository.obtenerDatosUsuarioModeracion`
+
 ## [15-04-2026] — Alertas enriquecidas con datos del usuario
 
 ### Descripción

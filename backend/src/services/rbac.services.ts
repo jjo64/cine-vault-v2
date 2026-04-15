@@ -105,10 +105,11 @@ export const rbacService = {
    Bloquea al usuario permanentemente e invalida su caché de rol
    para que el cambio sea inmediato sin necesidad de cerrar sesión.
    ---------------------------------------------------------------------- */
-banearUsuarioService: async (userId: number) => {
+banearUsuarioService: async (userId: number, adminId: number) => {
   await rbacRepository.banearUsuario(userId)
-  // Invalidamos la caché de Redis para que el cambio sea inmediato
   await invalidarCacheUsuario(userId)
+  // Registrar acción en el historial
+  await rbacRepository.registrarAccionModeracion(adminId, "user_banned", userId)
 },
 
 /* ------------------------------------------------------------------------
@@ -116,7 +117,7 @@ banearUsuarioService: async (userId: number) => {
    Crea una notificación de warning al usuario con el contenido
    ofensivo y la avisa en tiempo real si está conectado.
    ---------------------------------------------------------------------- */
-enviarWarningService: async (userId: number, contenidoOfensivo: string) => {
+enviarWarningService: async (userId: number, contenidoOfensivo: string, adminId: number) => {
   await rbacRepository.crearWarning(userId, contenidoOfensivo)
   // Notificamos al usuario en tiempo real si está conectado
   const socketId = usuariosConectados.get(userId)
@@ -127,6 +128,16 @@ enviarWarningService: async (userId: number, contenidoOfensivo: string) => {
       timestamp: new Date().toISOString(),
     })
   }
+  // Registrar acción en el historial
+  await rbacRepository.registrarAccionModeracion(adminId, "warning_sent", userId)
+},
+
+/* ------------------------------------------------------------------------
+   HISTORIAL DE MODERACIÓN
+   Devuelve las últimas acciones de moderación para el panel de admin
+   ---------------------------------------------------------------------- */
+obtenerHistorialModeracionService: async () => {
+  return rbacRepository.obtenerHistorialModeracion()
 },
 
 }

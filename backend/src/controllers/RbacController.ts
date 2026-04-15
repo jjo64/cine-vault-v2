@@ -42,7 +42,10 @@ export const borrarComentario = async (req: Request, res: Response) => {
    Bloquea al usuario permanentemente e invalida sus sesiones
    -------------------------------------------------------------------------- */
 export const banearUsuario = async (req: Request, res: Response) => {
-  await rbacService.banearUsuarioService(Number(req.params.id))
+  await rbacService.banearUsuarioService(
+    Number(req.params.id),
+    req.user!.user_id  // ← ID del admin que ejecuta la acción
+  )
   res.json({ message: "Usuario baneado permanentemente" })
 }
 
@@ -54,7 +57,17 @@ export const enviarWarning = async (req: Request, res: Response) => {
   const { contenidoOfensivo } = req.body
   await rbacService.enviarWarningService(
     Number(req.params.id),
-    contenidoOfensivo
+    contenidoOfensivo,
+    req.user!.user_id  // ← ID del admin que ejecuta la acción
   )
   res.json({ message: "Warning enviado correctamente" })
+}
+
+/* --------------------------------------------------------------------------
+   HISTORIAL DE MODERACIÓN
+   Devuelve las últimas acciones de moderación tomadas por los admins
+   -------------------------------------------------------------------------- */
+export const obtenerHistorialModeracion = async (req: Request, res: Response) => {
+  const historial = await rbacService.obtenerHistorialModeracionService()
+  res.json(historial)
 }

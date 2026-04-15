@@ -129,4 +129,64 @@ crearWarning: async (userId: number, contenidoOfensivo: string) => {
   })
 },
 
+/* ------------------------------------------------------------------------
+   OBTENER DATOS DE USUARIO PARA MODERACIÓN
+   Devuelve los datos básicos del usuario y su historial de reportes.
+   Se usa para enriquecer las alertas de moderación en tiempo real.
+   ---------------------------------------------------------------------- */
+obtenerDatosUsuarioModeracion: async (userId: number) => {
+  return prisma.users.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      membership: true,
+      _count: {
+        select: { reports: true }
+      }
+    }
+  })
+},
+
+/* ------------------------------------------------------------------------
+   REGISTRAR ACCIÓN DE MODERACIÓN
+   Guarda en user_activity las acciones tomadas por el admin:
+   content_blocked, user_banned, warning_sent
+   ---------------------------------------------------------------------- */
+registrarAccionModeracion: async (
+  adminId: number | null,
+  action: string,
+  targetUserId?: number
+) => {
+  return prisma.user_activity.create({
+    data: {
+      user_id: adminId || null,
+      action,
+    }
+  })
+},
+
+/* ------------------------------------------------------------------------
+   OBTENER HISTORIAL DE MODERACIÓN
+   Devuelve las últimas 100 acciones de moderación ordenadas por fecha
+   ---------------------------------------------------------------------- */
+obtenerHistorialModeracion: async () => {
+  return prisma.user_activity.findMany({
+    where: {
+      action: {
+        in: ["content_blocked", "user_banned", "warning_sent"]
+      }
+    },
+    include: {
+      users: {
+        select: { id: true, username: true, role: true }
+      }
+    },
+    orderBy: { created_at: "desc" },
+    take: 100,
+  })
+},
+
 }

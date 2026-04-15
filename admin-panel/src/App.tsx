@@ -4,6 +4,8 @@ import ReportsTable from "./components/ReportsTable"
 import UsersTable from "./components/UsersTable"
 import PaymentsTable from "./components/PaymentsTable"
 import ActivityTable from "./components/ActivityTable"
+import ModerationTable from "./components/ModerationTable"
+
 import SessionsChart from "./components/SessionsChart"
 import { conectarSocket, desconectarSocket, socket } from "./socket"
 
@@ -185,6 +187,7 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
             { label: "📰 Noticias", endpoint: "/rbac/news" },
             { label: "📋 Actividad", endpoint: "/rbac/users/activity" },
             { label: "🌐 Sesiones", endpoint: "/rbac/stats/sessions" },
+            { label: "🛡️ Moderación", endpoint: "/rbac/moderation/history" },
             
           ].map(item => (
             <button
@@ -295,6 +298,8 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
                   <ActivityTable datos={datos} />
                 ) : endpoint === "/rbac/stats/sessions" ? (
                   <SessionsChart datos={datos} />
+                ) : endpoint === "/rbac/moderation/history" ? (
+                  <ModerationTable datos={datos} />
                 ) : (
                 <pre className="bg-gray-900 p-6 rounded-xl text-green-400 text-sm overflow-auto">
                   {JSON.stringify(datos, null, 2)}

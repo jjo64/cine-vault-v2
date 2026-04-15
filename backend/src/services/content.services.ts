@@ -1,6 +1,6 @@
 import { ContentModerationError } from "../errors/AppErrors.js"
 import { alertarAdmins } from "./socket.services.js"
-import { prisma } from "../lib/prisma.js"
+import { rbacRepository } from "../repositories/RbacRepository.js"
 /* ==========================================================================
    SERVICIO DE MODERACIÓN DE CONTENIDO
    --------------------------------------------------------------------------
@@ -118,19 +118,7 @@ export const verificarContenido = async (texto: string, userId?: number): Promis
       // Buscamos los datos del usuario para enriquecer la alerta
 let datosUsuario = null
 if (userId) {
-  datosUsuario = await prisma.users.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      role: true,
-      membership: true,
-      _count: {
-        select: { reports: true } // número de reportes que ha recibido
-      }
-    }
-  })
+  datosUsuario = await rbacRepository.obtenerDatosUsuarioModeracion(userId)
 }
 
 alertarAdmins("contenido_bloqueado", {
@@ -146,6 +134,11 @@ alertarAdmins("contenido_bloqueado", {
     reportes_previos: datosUsuario._count.reports,
   } : null,
 })
+
+  // Registrar en el historial de moderación
+if (userId) {
+  await rbacRepository.registrarAccionModeracion(null, "content_blocked", userId)
+}
 
     throw new ContentModerationError(`Contenido no permitido: ${categorias}`)
   }
