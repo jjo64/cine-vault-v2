@@ -428,6 +428,7 @@ enum notifications_type {
   like
   comment
   report_resolved
+  warning
 }
 
 enum subscriptions_plan {

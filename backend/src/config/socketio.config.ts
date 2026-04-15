@@ -1,6 +1,7 @@
 import { Server } from "socket.io"
 
 export const usuariosConectados = new Map<number, string>()
+export const adminsConectados = new Set<string>()  // sockets de admins y editores
 export let io: Server
 
 export const initSocketIO = (httpServer: any) => {
@@ -16,16 +17,22 @@ export const initSocketIO = (httpServer: any) => {
   io.on("connection", (socket) => {
     console.log(`Socket conectado: ${socket.id}`)
 
-    socket.on("registrar_usuario", (userId: number) => {
+    socket.on("registrar_usuario", (data: { userId: number, role: string }) => {
+      const userId = typeof data === "number" ? data : data.userId
+      const role = typeof data === "number" ? "user" : data.role
+
       usuariosConectados.set(userId, socket.id)
-      console.log(`Usuario ${userId} registrado con socket ${socket.id}`)
+
+      if (role === "admin" || role === "editor") {
+        adminsConectados.add(socket.id)
+      }
     })
 
     socket.on("disconnect", () => {
       for (const [userId, socketId] of usuariosConectados.entries()) {
         if (socketId === socket.id) {
           usuariosConectados.delete(userId)
-          console.log(`Usuario ${userId} desconectado`)
+          adminsConectados.delete(socket.id)
           break
         }
       }

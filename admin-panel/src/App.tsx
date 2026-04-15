@@ -1,11 +1,11 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import StatsPanel from "./components/StatsPanel"
 import ReportsTable from "./components/ReportsTable"
 import UsersTable from "./components/UsersTable"
 import PaymentsTable from "./components/PaymentsTable"
 import ActivityTable from "./components/ActivityTable"
 import SessionsChart from "./components/SessionsChart"
-
+import { conectarSocket, desconectarSocket, socket } from "./socket"
 
 const API = "http://localhost:4000/api"
 //const API = "http://192.168.1.15:4000/api"  para pruebas login movil
@@ -19,6 +19,20 @@ export default function App() {
   const [datos, setDatos] = useState<any>(null)
   const [error, setError] = useState("")
   const [endpoint, setEndpoint] = useState("")
+  const [alertas, setAlertas] = useState<any[]>([])
+
+
+ // Escucha alertas de contenido bloqueado por la IA
+  useEffect(() => {
+    socket.on("contenido_bloqueado", (datos) => {
+      console.log("[Socket] Datos recibidos:", datos)
+      setAlertas(prev => [datos, ...prev].slice(0, 10)) // máximo 10 alertas
+    })
+
+   return () => {
+      socket.off("contenido_bloqueado")
+    }
+  }, [])
   
 
   // LOGIN
@@ -34,6 +48,10 @@ export default function App() {
     if (data.accessToken) {
       setToken(data.accessToken)
       setVista("panel")
+      const payload = decodificarToken(data.accessToken)
+    if (payload) {
+      conectarSocket(payload.user_id, payload.role)
+    }
     } else {
       setError("Credenciales incorrectas")
     }
@@ -52,6 +70,51 @@ export default function App() {
       setError(data.error.message)
     } else {
       setDatos(data)
+    }
+  }
+
+  // BANEAR USUARIO
+const banearUsuario = async (userId: number) => {
+  if (!userId) return alert("No se puede identificar al usuario")
+  if (!confirm("¿Seguro que quieres banear a este usuario permanentemente?")) return
+  const res = await fetch(`${API}/rbac/users/${userId}/ban`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = await res.json()
+  if (data.error) {
+    alert("Error: " + data.error.message)
+  } else {
+    alert("Usuario baneado correctamente")
+  }
+}
+
+// ENVIAR WARNING
+const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
+  if (!userId) return alert("No se puede identificar al usuario")
+  const res = await fetch(`${API}/rbac/users/${userId}/warning`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ contenidoOfensivo }),
+  })
+  const data = await res.json()
+  if (data.error) {
+    alert("Error: " + data.error.message)
+  } else {
+    alert("Warning enviado correctamente")
+  }
+}
+
+  // Decodifica el payload del JWT sin verificar la firma
+  const decodificarToken = (token: string) => {
+    try {
+      const payload = token.split(".")[1]
+      return JSON.parse(atob(payload))
+    } catch {
+      return null
     }
   }
 
@@ -96,7 +159,11 @@ export default function App() {
         <h1 className="text-xl font-bold">🎬 CineVault Admin</h1>
         <button
           className="text-gray-400 hover:text-white text-sm"
-          onClick={() => { setToken(""); setVista("login") }}
+          onClick={() => { 
+            setToken("")
+            setVista("login")
+            desconectarSocket()
+          }}
         >
           Cerrar sesión
         </button>
@@ -128,6 +195,49 @@ export default function App() {
 
         {/* CONTENIDO */}
         <div className="flex-1 p-8">
+          {/* ALERTAS EN TIEMPO REAL */}
+        {alertas.length > 0 && (
+          <div className="mb-6 space-y-2">
+            <h3 className="text-red-400 text-sm font-semibold uppercase">
+              ⚠️ Alertas en tiempo real
+            </h3>
+        {alertas.map((alerta, i) => (
+          <div key={i} className="bg-red-950 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <span className="font-semibold">Contenido bloqueado</span>
+                <span className="text-red-400 ml-2">— {alerta.categorias}</span>
+                <p className="text-red-500 text-xs mt-1 truncate max-w-lg">"{alerta.texto}..."</p>
+              </div>
+              <span className="text-red-500 text-xs whitespace-nowrap ml-4">
+                {new Date(alerta.timestamp).toLocaleTimeString("es-ES")}
+              </span>
+            </div>
+            {/* ACCIONES */}
+            <div className="flex gap-2 mt-2">
+              <button
+                className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-xs font-semibold"
+                onClick={() => enviarWarning(alerta.userId, alerta.texto)}
+              >
+                ⚠️ Enviar warning
+              </button>
+              <button
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold"
+                onClick={() => banearUsuario(alerta.userId)}
+              >
+                🚫 Banear usuario
+              </button>
+              <button
+                className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded text-xs font-semibold"
+                onClick={() => setAlertas(prev => prev.filter((_, j) => j !== i))}
+              >
+                ✕ Ignorar
+              </button>
+            </div>
+          </div>
+        ))}
+          </div>
+        )}
           {error && (
             <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4">
               ⚠️ {error}

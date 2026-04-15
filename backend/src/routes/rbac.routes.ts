@@ -18,8 +18,7 @@ import { prisma } from "../lib/prisma.js"
 import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
 import { rbacRepository } from "../repositories/RbacRepository.js"
-import { obtenerEstadisticas, borrarComentario, obtenerEstadisticasSesiones } from "../controllers/RbacController.js"
-
+import { obtenerEstadisticas, borrarComentario, obtenerEstadisticasSesiones, banearUsuario, enviarWarning } from "../controllers/RbacController.js"
 
 
 /**
@@ -353,6 +352,28 @@ router.patch(
     })
     res.json(usuario)
   })
+)
+
+/* ------------------------------------------------------------------------
+   BANEAR USUARIO — solo admin
+   Bloquea al usuario permanentemente e invalida todas sus sesiones
+   ---------------------------------------------------------------------- */
+router.patch(
+  "/users/:id/ban",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(banearUsuario)
+)
+
+/* ------------------------------------------------------------------------
+   ENVIAR WARNING — solo admin
+   Envía una advertencia al usuario con el contenido ofensivo
+   ---------------------------------------------------------------------- */
+router.post(
+  "/users/:id/warning",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(enviarWarning)
 )
 
 /**

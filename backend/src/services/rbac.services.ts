@@ -8,6 +8,8 @@
 
 import { rbacRepository } from "../repositories/RbacRepository.js"
 import { UAParser } from "ua-parser-js"
+import { io, usuariosConectados } from "../config/socketio.config.js"
+import { invalidarCacheUsuario } from "../middlewares/rbac.middleware.js"
 
 export const rbacService = {
 
@@ -97,5 +99,34 @@ export const rbacService = {
     borrarComentarioService: async (commentId: number) => {
     await rbacRepository.borrarComentario(commentId)
     },
+
+/* ------------------------------------------------------------------------
+   BANEAR USUARIO
+   Bloquea al usuario permanentemente e invalida su caché de rol
+   para que el cambio sea inmediato sin necesidad de cerrar sesión.
+   ---------------------------------------------------------------------- */
+banearUsuarioService: async (userId: number) => {
+  await rbacRepository.banearUsuario(userId)
+  // Invalidamos la caché de Redis para que el cambio sea inmediato
+  await invalidarCacheUsuario(userId)
+},
+
+/* ------------------------------------------------------------------------
+   ENVIAR WARNING
+   Crea una notificación de warning al usuario con el contenido
+   ofensivo y la avisa en tiempo real si está conectado.
+   ---------------------------------------------------------------------- */
+enviarWarningService: async (userId: number, contenidoOfensivo: string) => {
+  await rbacRepository.crearWarning(userId, contenidoOfensivo)
+  // Notificamos al usuario en tiempo real si está conectado
+  const socketId = usuariosConectados.get(userId)
+  if (socketId) {
+    io.to(socketId).emit("warning_recibido", {
+      mensaje: "Has recibido un aviso por contenido inapropiado. En la siguiente infracción podrás ser baneado permanentemente.",
+      contenido: contenidoOfensivo,
+      timestamp: new Date().toISOString(),
+    })
+  }
+},
 
 }

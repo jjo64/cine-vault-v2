@@ -92,4 +92,41 @@ obtenerPropietarioComentario: async (commentId: number) => {
   return comentario?.user_id ?? null
 },
 
+/* ------------------------------------------------------------------------
+   BANEAR USUARIO
+   Bloquea al usuario permanentemente estableciendo locked_until
+   a una fecha muy lejana e invalida todas sus sesiones activas.
+   ---------------------------------------------------------------------- */
+banearUsuario: async (userId: number) => {
+  // Fecha muy lejana — equivale a baneo permanente
+  const fechaBaneo = new Date("2099-12-31")
+
+  // Bloqueamos al usuario y eliminamos todas sus sesiones activas
+  await Promise.all([
+    prisma.users.update({
+      where: { id: userId },
+      data: { locked_until: fechaBaneo },
+    }),
+    prisma.sessions.deleteMany({
+      where: { user_id: userId },
+    }),
+  ])
+},
+
+/* ------------------------------------------------------------------------
+   ENVIAR WARNING
+   Crea una notificación de tipo warning al usuario con el texto
+   del contenido ofensivo para que sepa por qué fue advertido.
+   ---------------------------------------------------------------------- */
+crearWarning: async (userId: number, contenidoOfensivo: string) => {
+  return prisma.notifications.create({
+    data: {
+      user_id: userId,
+      sender_id: null,
+      type: "warning" as any, // pendiente añadir al enum con el equipo
+      read: false,
+    },
+  })
+},
+
 }

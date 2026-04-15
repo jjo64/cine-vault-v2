@@ -1,4 +1,5 @@
 import { ContentModerationError } from "../errors/AppErrors.js"
+import { alertarAdmins } from "./socket.services.js"
 
 /* ==========================================================================
    SERVICIO DE MODERACIÓN DE CONTENIDO
@@ -102,7 +103,7 @@ export const moderarTexto = async (texto: string): Promise<ModerationResult> => 
  * Lanza un error si el texto contiene contenido inapropiado.
  * Es el helper que usan los servicios directamente.
  */
-export const verificarContenido = async (texto: string): Promise<void> => {
+export const verificarContenido = async (texto: string, userId?: number): Promise<void> => {
   if (!texto || texto.trim().length === 0) return
 
   const resultado = await moderarTexto(texto)
@@ -112,6 +113,14 @@ export const verificarContenido = async (texto: string): Promise<void> => {
       .filter(([_, valor]) => valor)
       .map(([categoria]) => categoria)
       .join(", ")
+
+  // Alerta en tiempo real a todos los admins conectados
+      alertarAdmins("contenido_bloqueado", {
+        categorias,
+        timestamp: new Date().toISOString(),
+        texto: texto.substring(0, 100), // primeros 100 caracteres para contexto
+        userId,
+      })
 
     throw new ContentModerationError(`Contenido no permitido: ${categorias}`)
   }

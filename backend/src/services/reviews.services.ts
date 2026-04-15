@@ -15,6 +15,7 @@ import type {
   ActualizarComentarioDTO,
 } from "../schemas/reviews.js"
 import { ensureMovieRefId, findMovieRefIdByCandidate } from "./movieRef.services.js"
+import { verificarContenido } from "./content.services.js"
 
 /* ==========================================================================
    REVIEWS SERVICE
@@ -66,6 +67,10 @@ const verificarYCrearResenaUnica = async (
   )
   if (existente)
     throw new ConflictError("Ya tienes una reseña para esta película")
+
+  // Moderación automática — analiza el contenido antes de guardarlo
+if (data.content) await verificarContenido(data.content, userId)
+
   const resena = await reviewsRepository.create(userId, {
     ...data,
     movie_id: movieId,
@@ -174,12 +179,14 @@ export const crearComentarioService = async (
   const id = asegurarId(reviewId)
   const resena = await reviewsRepository.findById(id)
   if (!resena) throw new NotFoundError("Reseña no encontrada")
+
+  // Moderación automática — analiza el comentario antes de guardarlo
+await verificarContenido(data.content, userId)
   const comentario = await reviewsRepository.createComment(
     id,
     userId,
     data.content
   )
-  // Devolvemos la review (para que el caller pueda emitir notificación)
   return { comentario, review: resena }
 }
 

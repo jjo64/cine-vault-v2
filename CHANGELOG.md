@@ -5,6 +5,43 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [15-04-2026] — Socket.IO: alertas en tiempo real al admin
+
+### Descripción
+Implementación de alertas en tiempo real al panel de administración
+cuando la IA detecta y bloquea contenido inapropiado.
+
+### Archivos creados
+- `backend/src/services/socket.services.ts` — lógica de emisión de eventos Socket.IO
+- `admin-panel/src/socket.ts` — cliente Socket.IO para el panel de admin
+
+### Archivos modificados
+- `backend/src/config/socketio.config.ts` — tracking de admins y editores conectados
+- `backend/src/services/content.services.ts` — emite alerta antes de bloquear contenido
+- `backend/src/services/reviews.services.ts` — restaurada moderación en reseñas y comentarios
+- `backend/src/errors/AppErrors.ts` — restaurado ContentModerationError
+- `admin-panel/src/App.tsx` — escucha eventos y muestra alertas en tiempo real
+
+### Cómo funciona
+
+Usuario escribe contenido inapropiado
+↓
+OpenAI detecta: harassment, violence...
+↓
+Socket.IO emite "contenido_bloqueado" a todos los admins conectados
+↓
+Panel de admin muestra alerta en tiempo real con categorías y texto
+↓
+ContentModerationError bloquea la petición (422)
+
+### Dependencias añadidas
+- `socket.io-client` — cliente Socket.IO para el panel de admin
+
+### Probado
+✅ Contenido inapropiado → bloqueado y alerta en tiempo real al admin
+✅ Admin desconectado → no recibe la alerta (correcto)
+✅ Socket se desconecta al cerrar sesión
+
 ## [14-04-2026] — Mejoras visuales del panel de administración
 
 ### Descripción

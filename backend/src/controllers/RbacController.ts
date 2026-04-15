@@ -36,3 +36,25 @@ export const borrarComentario = async (req: Request, res: Response) => {
   await rbacService.borrarComentarioService(Number(req.params.id))
   res.json({ message: "Comentario eliminado correctamente" })
 }
+
+/* --------------------------------------------------------------------------
+   BANEAR USUARIO
+   Bloquea al usuario permanentemente e invalida sus sesiones
+   -------------------------------------------------------------------------- */
+export const banearUsuario = async (req: Request, res: Response) => {
+  await rbacService.banearUsuarioService(Number(req.params.id))
+  res.json({ message: "Usuario baneado permanentemente" })
+}
+
+/* --------------------------------------------------------------------------
+   ENVIAR WARNING
+   Envía una advertencia al usuario con el contenido ofensivo
+   -------------------------------------------------------------------------- */
+export const enviarWarning = async (req: Request, res: Response) => {
+  const { contenidoOfensivo } = req.body
+  await rbacService.enviarWarningService(
+    Number(req.params.id),
+    contenidoOfensivo
+  )
+  res.json({ message: "Warning enviado correctamente" })
+}
