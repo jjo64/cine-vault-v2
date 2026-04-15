@@ -5,6 +5,38 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [15-04-2026] — Baneo, warning y corrección de bugs
+
+### Descripción
+Sistema completo de acciones de moderación desde el panel de admin
+con alertas en tiempo real via Socket.IO.
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — métodos banearUsuario y crearWarning
+- `backend/src/services/rbac.services.ts` — servicios banearUsuarioService y enviarWarningService
+- `backend/src/controllers/RbacController.ts` — endpoints banearUsuario y enviarWarning
+- `backend/src/routes/rbac.routes.ts` — rutas PATCH /users/:id/ban y POST /users/:id/warning
+- `backend/src/services/auth.services.ts` — comprobación de locked_until en login
+- `backend/src/errors/AppErrors.ts` — ContentModerationError restaurado
+- `backend/prisma/schema.prisma` — añadido "warning" al enum notifications_type
+- `admin-panel/src/App.tsx` — botones de baneo y warning en alertas
+
+### Añadido
+- `PATCH /api/rbac/users/:id/ban` — banea permanentemente a un usuario (locked_until = 2099)
+- `POST /api/rbac/users/:id/warning` — envía notificación de aviso al usuario
+- Comprobación de `locked_until` en el login — usuarios baneados no pueden entrar
+- Botones de acción en las alertas del panel — Banear, Warning e Ignorar
+- Las alertas desaparecen automáticamente después de realizar una acción
+
+### BD
+- Añadido `warning` al enum `notifications_type` via `npx prisma db push`
+
+### Probado
+✅ Usuario baneado → error 403 al intentar hacer login
+✅ Warning enviado → notificación creada en BD
+✅ Alerta desaparece tras realizar acción
+✅ Socket.IO emite alerta al admin cuando la IA bloquea contenido
+
 ## [15-04-2026] — Socket.IO: alertas en tiempo real al admin
 
 ### Descripción

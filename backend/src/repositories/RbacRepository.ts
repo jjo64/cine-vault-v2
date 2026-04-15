@@ -123,7 +123,7 @@ crearWarning: async (userId: number, contenidoOfensivo: string) => {
     data: {
       user_id: userId,
       sender_id: null,
-      type: "warning" as any, // pendiente añadir al enum con el equipo
+      type: "warning",
       read: false,
     },
   })

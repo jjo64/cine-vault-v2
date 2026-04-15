@@ -198,7 +198,18 @@ export const iniciarSesionService = async (
   }
 
   const contrasenaValida = await compararContrasena(password, usuario.password)
-  if (!contrasenaValida) throw new UnauthorizedError("Credenciales incorrectas")
+  if (!contrasenaValida) 
+    throw new UnauthorizedError("Credenciales incorrectas")
+  // Comprobar si el usuario está baneado o bloqueado temporalmente
+  if (usuario.locked_until && new Date(usuario.locked_until) > new Date()) {
+    const esBaneo = new Date(usuario.locked_until).getFullYear() >= 2099
+    if (esBaneo) {
+      throw new ForbiddenError("Tu cuenta ha sido baneada permanentemente")
+    } else {
+      throw new ForbiddenError(`Tu cuenta está bloqueada temporalmente hasta ${new Date(usuario.locked_until).toLocaleString("es-ES")}`)
+    }
+  }
+  
 
   // Flujo 2FA: devolver token temporal en vez de tokens reales
   if (usuario.two_factor_enabled) {

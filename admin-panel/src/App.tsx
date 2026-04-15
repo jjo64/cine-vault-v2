@@ -86,6 +86,8 @@ const banearUsuario = async (userId: number) => {
     alert("Error: " + data.error.message)
   } else {
     alert("Usuario baneado correctamente")
+        setAlertas(prev => prev.filter(a => a.userId !== userId)) // ← elimina la alerta
+
   }
 }
 
@@ -105,6 +107,8 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
     alert("Error: " + data.error.message)
   } else {
     alert("Warning enviado correctamente")
+        setAlertas(prev => prev.filter(a => a.userId !== userId)) // ← elimina la alerta
+
   }
 }
 
