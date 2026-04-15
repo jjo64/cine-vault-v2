@@ -5,6 +5,22 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [15-04-2026] — Alertas enriquecidas con datos del usuario
+
+### Descripción
+Las alertas de moderación en tiempo real ahora incluyen información
+completa del usuario que generó el contenido inapropiado.
+
+### Archivos modificados
+- `backend/src/services/content.services.ts` — búsqueda de datos del usuario al generar la alerta
+- `admin-panel/src/App.tsx` — visualización de datos del usuario en la alerta
+
+### Datos añadidos a la alerta
+- Username y email del usuario
+- Rol (admin/editor/user) con color
+- Membresía (free/vip/pro) con color
+- Número de reportes previos — si tiene historial aparece destacado en rojo
+
 ## [15-04-2026] — Notificaciones de pagos via Socket.IO
 
 ### Descripción

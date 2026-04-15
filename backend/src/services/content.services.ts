@@ -1,6 +1,6 @@
 import { ContentModerationError } from "../errors/AppErrors.js"
 import { alertarAdmins } from "./socket.services.js"
-
+import { prisma } from "../lib/prisma.js"
 /* ==========================================================================
    SERVICIO DE MODERACIÓN DE CONTENIDO
    --------------------------------------------------------------------------
@@ -115,12 +115,37 @@ export const verificarContenido = async (texto: string, userId?: number): Promis
       .join(", ")
 
   // Alerta en tiempo real a todos los admins conectados
-      alertarAdmins("contenido_bloqueado", {
-        categorias,
-        timestamp: new Date().toISOString(),
-        texto: texto.substring(0, 100), // primeros 100 caracteres para contexto
-        userId,
-      })
+      // Buscamos los datos del usuario para enriquecer la alerta
+let datosUsuario = null
+if (userId) {
+  datosUsuario = await prisma.users.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      membership: true,
+      _count: {
+        select: { reports: true } // número de reportes que ha recibido
+      }
+    }
+  })
+}
+
+alertarAdmins("contenido_bloqueado", {
+  categorias,
+  timestamp: new Date().toISOString(),
+  texto: texto.substring(0, 100),
+  userId,
+  usuario: datosUsuario ? {
+    username: datosUsuario.username,
+    email: datosUsuario.email,
+    role: datosUsuario.role,
+    membership: datosUsuario.membership,
+    reportes_previos: datosUsuario._count.reports,
+  } : null,
+})
 
     throw new ContentModerationError(`Contenido no permitido: ${categorias}`)
   }

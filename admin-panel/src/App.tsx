@@ -212,6 +212,37 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
                 <span className="font-semibold">Contenido bloqueado</span>
                 <span className="text-red-400 ml-2">— {alerta.categorias}</span>
                 <p className="text-red-500 text-xs mt-1 truncate max-w-lg">"{alerta.texto}..."</p>
+                
+                {/* Datos del usuario */}
+                {alerta.usuario && (
+                  <div className="mt-2 flex gap-3 flex-wrap">
+                    <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
+                      👤 {alerta.usuario.username}
+                    </span>
+                    <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
+                      📧 {alerta.usuario.email}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                      alerta.usuario.role === "admin" ? "bg-red-500 text-red-950" :
+                      alerta.usuario.role === "editor" ? "bg-yellow-500 text-yellow-950" :
+                      "bg-blue-500 text-blue-950"
+                    }`}>
+                      {alerta.usuario.role}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                      alerta.usuario.membership === "pro" ? "bg-indigo-500 text-indigo-950" :
+                      alerta.usuario.membership === "vip" ? "bg-purple-500 text-purple-950" :
+                      "bg-gray-500 text-gray-950"
+                    }`}>
+                      {alerta.usuario.membership}
+                    </span>
+                    {alerta.usuario.reportes_previos > 0 && (
+                      <span className="bg-red-800 text-red-300 px-2 py-1 rounded text-xs font-semibold">
+                        ⚠️ {alerta.usuario.reportes_previos} reportes previos
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <span className="text-red-500 text-xs whitespace-nowrap ml-4">
                 {new Date(alerta.timestamp).toLocaleTimeString("es-ES")}
