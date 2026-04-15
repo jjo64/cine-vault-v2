@@ -140,4 +140,12 @@ obtenerHistorialModeracionService: async () => {
   return rbacRepository.obtenerHistorialModeracion()
 },
 
+/* ------------------------------------------------------------------------
+   OBTENER COMENTARIOS DE UN USUARIO
+   Para revisión del admin tras un baneo o warning.
+   ---------------------------------------------------------------------- */
+obtenerComentariosPorUsuarioService: async (userId: number) => {
+  return rbacRepository.obtenerComentariosPorUsuario(userId)
+},
+
 }

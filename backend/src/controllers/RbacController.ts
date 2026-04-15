@@ -71,3 +71,14 @@ export const obtenerHistorialModeracion = async (req: Request, res: Response) =>
   const historial = await rbacService.obtenerHistorialModeracionService()
   res.json(historial)
 }
+
+/* --------------------------------------------------------------------------
+   OBTENER COMENTARIOS DE UN USUARIO
+   El admin puede revisar el historial de comentarios de un usuario
+   -------------------------------------------------------------------------- */
+export const obtenerComentariosPorUsuario = async (req: Request, res: Response) => {
+  const comentarios = await rbacService.obtenerComentariosPorUsuarioService(
+    Number(req.params.id)
+  )
+  res.json(comentarios)
+}

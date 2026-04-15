@@ -18,8 +18,13 @@ import { prisma } from "../lib/prisma.js"
 import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
 import { rbacRepository } from "../repositories/RbacRepository.js"
-import { obtenerEstadisticas, borrarComentario, obtenerEstadisticasSesiones, banearUsuario, enviarWarning, obtenerHistorialModeracion } from "../controllers/RbacController.js"
-
+import { obtenerEstadisticas, 
+  borrarComentario, 
+  obtenerEstadisticasSesiones, 
+  banearUsuario, 
+  enviarWarning, 
+  obtenerHistorialModeracion, 
+  obtenerComentariosPorUsuario } from "../controllers/RbacController.js"
 /**
  * @swagger
  * tags:
@@ -434,6 +439,17 @@ router.get(
   middlewareAutenticacion,
   verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
   manejadorAsincrono(obtenerHistorialModeracion)
+)
+
+/* ------------------------------------------------------------------------
+   COMENTARIOS DE UN USUARIO — solo admin
+   El admin puede revisar el historial de comentarios de un usuario
+   ---------------------------------------------------------------------- */
+router.get(
+  "/users/:id/comments",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerComentariosPorUsuario)
 )
 
 /**

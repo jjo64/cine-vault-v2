@@ -5,6 +5,7 @@ import UsersTable from "./components/UsersTable"
 import PaymentsTable from "./components/PaymentsTable"
 import ActivityTable from "./components/ActivityTable"
 import ModerationTable from "./components/ModerationTable"
+import UserCommentsTable from "./components/UserCommentsTable"
 
 import SessionsChart from "./components/SessionsChart"
 import { conectarSocket, desconectarSocket, socket } from "./socket"
@@ -22,6 +23,7 @@ export default function App() {
   const [error, setError] = useState("")
   const [endpoint, setEndpoint] = useState("")
   const [alertas, setAlertas] = useState<any[]>([])
+  const [userIdBuscado, setUserIdBuscado] = useState<number | null>(null)
 
 
  // Escucha alertas de contenido bloqueado por la IA
@@ -89,6 +91,8 @@ const banearUsuario = async (userId: number) => {
   } else {
     alert("Usuario baneado correctamente")
         setAlertas(prev => prev.filter(a => a.userId !== userId)) // ← elimina la alerta
+        setDatos(null)
+        setEndpoint("")
 
   }
 }
@@ -110,6 +114,8 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
   } else {
     alert("Warning enviado correctamente")
         setAlertas(prev => prev.filter(a => a.userId !== userId)) // ← elimina la alerta
+        setDatos(null)
+        setEndpoint("")
 
   }
 }
@@ -267,9 +273,22 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
               </button>
               <button
                 className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded text-xs font-semibold"
-                onClick={() => setAlertas(prev => prev.filter((_, j) => j !== i))}
+                onClick={() => {
+                  setAlertas(prev => prev.filter((_, j) => j !== i))
+                  setDatos(null)   // ← añade esto
+                  setEndpoint("")  // ← y esto
+                }}
               >
                 ✕ Ignorar
+              </button>
+              <button
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold"
+                onClick={() => {
+                  setUserIdBuscado(alerta.userId)
+                  llamar(`/rbac/users/${alerta.userId}/comments`)
+                }}
+              >
+                💬 Ver comentarios
               </button>
             </div>
           </div>
@@ -300,6 +319,14 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
                   <SessionsChart datos={datos} />
                 ) : endpoint === "/rbac/moderation/history" ? (
                   <ModerationTable datos={datos} />
+                ) : endpoint.includes("/rbac/users/") && endpoint.includes("/comments") ? (
+                  <UserCommentsTable
+                    datos={datos}
+                    token={token}
+                    onCommentDeleted={(commentId) => {
+                      setDatos((prev: any) => prev.filter((c: any) => c.id !== commentId))
+                    }}
+                  />
                 ) : (
                 <pre className="bg-gray-900 p-6 rounded-xl text-green-400 text-sm overflow-auto">
                   {JSON.stringify(datos, null, 2)}

@@ -189,4 +189,24 @@ obtenerHistorialModeracion: async () => {
   })
 },
 
+/* ------------------------------------------------------------------------
+   OBTENER COMENTARIOS DE UN USUARIO
+   Devuelve todos los comentarios de un usuario para revisión del admin.
+   Útil para revisar el historial tras un baneo o warning.
+   ---------------------------------------------------------------------- */
+obtenerComentariosPorUsuario: async (userId: number) => {
+  return prisma.review_comments.findMany({
+    where: { user_id: userId },
+    include: {
+      users: {
+        select: { id: true, username: true }
+      },
+      reviews: {
+        select: { id: true, movie_id: true }
+      }
+    },
+    orderBy: { created_at: "desc" },
+  })
+},
+
 }

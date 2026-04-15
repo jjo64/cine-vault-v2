@@ -5,6 +5,28 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [15-04-2026] — Buscador de comentarios por usuario
+
+### Descripción
+El admin puede revisar el historial de comentarios de un usuario
+directamente desde la alerta de moderación y borrarlos si es necesario.
+
+### Archivos creados
+- `admin-panel/src/components/UserCommentsTable.tsx` — tabla de comentarios con botón de borrar
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — nuevo método obtenerComentariosPorUsuario
+- `backend/src/services/rbac.services.ts` — nuevo servicio obtenerComentariosPorUsuarioService
+- `backend/src/controllers/RbacController.ts` — nuevo endpoint obtenerComentariosPorUsuario
+- `backend/src/routes/rbac.routes.ts` — nueva ruta GET /rbac/users/:id/comments
+- `admin-panel/src/App.tsx` — botón "Ver comentarios" en alertas, limpieza de vista al ignorar/banear/warning
+
+### Añadido
+- `GET /api/rbac/users/:id/comments` — historial de comentarios de un usuario
+- Botón 💬 Ver comentarios en las alertas de moderación
+- Al borrar un comentario desaparece de la tabla sin recargar
+- La tabla de comentarios se limpia al banear, enviar warning o ignorar la alerta
+
 ## [15-04-2026] — Historial de moderación y refactorización SOLID
 
 ### Descripción
