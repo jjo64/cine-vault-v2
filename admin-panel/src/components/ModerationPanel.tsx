@@ -22,12 +22,22 @@ interface User {
   created_at: string
 }
 
+interface UsuarioAfectado {
+  id: number
+  username: string
+  email: string
+  role: string
+}
+
 interface ModerationAction {
   id: number
   user_id: number
   action: string
+  metadata: string | null
+  target_user_id: number | null
   created_at: string
-  users: { id: number; username: string; role: string }
+  users: { id: number; username: string; role: string } | null
+  usuarioAfectado: UsuarioAfectado | null
 }
 
 interface ModerationPanelProps {
@@ -270,25 +280,40 @@ export default function ModerationPanel({ token }: ModerationPanelProps) {
                   <tr>
                     <th className="px-4 py-3 text-left">Acción</th>
                     <th className="px-4 py-3 text-left">Admin</th>
-                    <th className="px-4 py-3 text-left">Fecha y hora</th>
+                    <th className="px-4 py-3 text-left">Usuario afectado</th>
+                    <th className="px-4 py-3 text-left">Motivo</th>
+                    <th className="px-4 py-3 text-left">Fecha</th>
                   </tr>
                 </thead>
                 <tbody>
                   {historial.map((item, i) => (
-                    <tr key={item.id} className={`border-t border-gray-800 ${i % 2 === 0 ? "bg-gray-950" : "bg-gray-900"}`}>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${colorAccion[item.action] ?? "bg-gray-500 text-gray-950"}`}>
-                          {iconoAccion[item.action] ?? "⚡"} {textoAccion[item.action] ?? item.action}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-white font-medium">
-                        {item.users?.username ?? "🤖 Bot Moderación"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-400">
-                        {new Date(item.created_at).toLocaleString("es-ES")}
-                      </td>
-                    </tr>
-                  ))}
+                  <tr key={item.id} className={`border-t border-gray-800 ${i % 2 === 0 ? "bg-gray-950" : "bg-gray-900"}`}>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${colorAccion[item.action] ?? "bg-gray-500 text-gray-950"}`}>
+                        {iconoAccion[item.action] ?? "⚡"} {textoAccion[item.action] ?? item.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white font-medium">
+                      {item.users?.username ?? "🤖 Bot Moderación"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-300">
+                      {item.usuarioAfectado ? (
+                        <div>
+                          <p className="font-medium">{item.usuarioAfectado.username}</p>
+                          <p className="text-gray-500 text-xs">{item.usuarioAfectado.email}</p>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs max-w-xs truncate">
+                      {item.metadata ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400">
+                      {new Date(item.created_at).toLocaleString("es-ES")}
+                    </td>
+                  </tr>
+                ))}
                 </tbody>
               </table>
             </div>

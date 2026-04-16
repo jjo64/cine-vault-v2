@@ -52,7 +52,7 @@ export const moderarTexto = async (texto: string): Promise<ModerationResult> => 
     })
 
     // Verificamos que la respuesta sea exitosa antes de parsear
-// fetch no lanza error en códigos 4xx/5xx — solo en fallos de red
+    // fetch no lanza error en códigos 4xx/5xx — solo en fallos de red
   if (!respuesta.ok) {
     console.warn(`[Moderación] OpenAI respondió ${respuesta.status}, contenido no moderado`)
     return RESULTADO_LIMPIO
@@ -137,7 +137,12 @@ alertarAdmins("contenido_bloqueado", {
 
   // Registrar en el historial de moderación
 if (userId) {
-  await rbacRepository.registrarAccionModeracion(null, "content_blocked", userId)
+  await rbacRepository.registrarAccionModeracion(
+  null,
+  "content_blocked",
+  userId,
+  `Categorías: ${categorias} | Texto: "${texto.substring(0, 150)}"`
+)
 }
 
     throw new ContentModerationError(`Contenido no permitido: ${categorias}`)

@@ -158,12 +158,15 @@ obtenerDatosUsuarioModeracion: async (userId: number) => {
 registrarAccionModeracion: async (
   adminId: number | null,
   action: string,
-  targetUserId?: number
+  targetUserId?: number,
+  metadata?: string
 ) => {
   return prisma.user_activity.create({
     data: {
       user_id: adminId || null,
       action,
+      target_user_id: targetUserId || null,
+      metadata: metadata || null,
     }
   })
 },
@@ -173,10 +176,10 @@ registrarAccionModeracion: async (
    Devuelve las últimas 100 acciones de moderación ordenadas por fecha
    ---------------------------------------------------------------------- */
 obtenerHistorialModeracion: async () => {
-  return prisma.user_activity.findMany({
+  const historial = await prisma.user_activity.findMany({
     where: {
       action: {
-        in: ["content_blocked", "user_banned", "warning_sent"]
+        in: ["content_blocked", "user_banned", "warning_sent", "user_unbanned"]
       }
     },
     include: {
@@ -187,6 +190,22 @@ obtenerHistorialModeracion: async () => {
     orderBy: { created_at: "desc" },
     take: 100,
   })
+
+  // Para cada acción que tenga target_user_id, buscamos los datos del usuario afectado
+  const historialConUsuario = await Promise.all(
+    historial.map(async (item) => {
+      let usuarioAfectado = null
+      if (item.target_user_id) {
+        usuarioAfectado = await prisma.users.findUnique({
+          where: { id: item.target_user_id },
+          select: { id: true, username: true, email: true, role: true }
+        })
+      }
+      return { ...item, usuarioAfectado }
+    })
+  )
+
+  return historialConUsuario
 },
 
 /* ------------------------------------------------------------------------

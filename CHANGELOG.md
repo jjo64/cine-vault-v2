@@ -5,6 +5,61 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [16-04-2026] — Historial de moderación enriquecido
+
+### Descripción
+El historial de moderación ahora muestra el usuario afectado, el motivo
+y el texto bloqueado para cada acción. Se añadieron campos nuevos a
+user_activity para almacenar esta información.
+
+### Archivos modificados
+- `backend/prisma/schema.prisma` — añadidos campos target_user_id y metadata a user_activity
+- `backend/src/repositories/RbacRepository.ts` — registrarAccionModeracion acepta metadata, obtenerHistorialModeracion incluye usuarioAfectado
+- `backend/src/services/rbac.services.ts` — todas las acciones de moderación pasan metadata descriptivo
+- `backend/src/services/content.services.ts` — metadata incluye categorías y texto bloqueado
+- `admin-panel/src/components/ModerationPanel.tsx` — historial muestra usuario afectado, motivo y texto
+
+### BD
+- Añadidos `target_user_id` y `metadata` a `user_activity` via `npx prisma db push`
+
+### Probado
+✅ Baneo → historial muestra usuario baneado y motivo
+✅ Warning → historial muestra usuario y contenido ofensivo
+✅ Contenido bloqueado → historial muestra categorías y texto bloqueado
+✅ Desbaneo → historial muestra usuario desbaneado
+
+## [15-04-2026] — Panel de Moderación completo
+
+### Descripción
+Rediseño completo del panel de moderación con tres secciones integradas:
+buscador de usuarios, lista de baneados y historial de acciones.
+
+### Archivos creados
+- `admin-panel/src/components/ModerationPanel.tsx` — panel completo con tabs
+
+### Archivos eliminados
+- `admin-panel/src/components/ModerationTable.tsx` — reemplazado por ModerationPanel
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — nuevos métodos: desbanearUsuario, obtenerUsuariosBaneados, buscarUsuario
+- `backend/src/services/rbac.services.ts` — nuevos servicios: desbanearUsuarioService, obtenerUsuariosBaneadosService, buscarUsuarioService
+- `backend/src/controllers/RbacController.ts` — nuevos endpoints: desbanearUsuario, obtenerUsuariosBaneados, buscarUsuario
+- `backend/src/routes/rbac.routes.ts` — rutas reordenadas (estáticas antes que parámetros) y nuevas rutas añadidas
+- `admin-panel/src/App.tsx` — integración de ModerationPanel
+
+### Añadido
+- `PATCH /api/rbac/users/:id/unban` — desbanear usuario
+- `GET /api/rbac/users/banned` — lista de usuarios baneados
+- `GET /api/rbac/users/search?query=` — buscador de usuarios por username o email
+- Panel de moderación con 3 tabs: Buscar usuario, Usuarios baneados, Historial
+- Botón de desbanear en buscador y lista de baneados
+
+### Probado
+✅ Buscador encuentra usuarios por username y email
+✅ Lista de baneados muestra usuarios con locked_until >= 2099
+✅ Desbanear funciona correctamente
+✅ Historial muestra todas las acciones incluyendo desbaneos
+
 ## [15-04-2026] — Buscador de comentarios por usuario
 
 ### Descripción
