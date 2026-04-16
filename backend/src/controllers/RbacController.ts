@@ -82,3 +82,34 @@ export const obtenerComentariosPorUsuario = async (req: Request, res: Response) 
   )
   res.json(comentarios)
 }
+
+/* --------------------------------------------------------------------------
+   OBTENER USUARIOS BANEADOS
+   -------------------------------------------------------------------------- */
+export const obtenerUsuariosBaneados = async (req: Request, res: Response) => {
+  const usuarios = await rbacService.obtenerUsuariosBaneadosService()
+  res.json(usuarios)
+}
+
+/* --------------------------------------------------------------------------
+   BUSCAR USUARIO
+   -------------------------------------------------------------------------- */
+export const buscarUsuario = async (req: Request, res: Response) => {
+  const { query } = req.query
+  if (!query || typeof query !== "string") {
+    return res.status(400).json({ error: "Query de búsqueda requerida" })
+  }
+  const usuarios = await rbacService.buscarUsuarioService(query)
+  res.json(usuarios)
+}
+
+/* --------------------------------------------------------------------------
+   DESBANEAR USUARIO
+   -------------------------------------------------------------------------- */
+export const desbanearUsuario = async (req: Request, res: Response) => {
+  await rbacService.desbanearUsuarioService(
+    Number(req.params.id),
+    req.user!.user_id
+  )
+  res.json({ message: "Usuario desbaneado correctamente" })
+}

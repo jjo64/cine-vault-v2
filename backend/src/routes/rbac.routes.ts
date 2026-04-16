@@ -24,7 +24,10 @@ import { obtenerEstadisticas,
   banearUsuario, 
   enviarWarning, 
   obtenerHistorialModeracion, 
-  obtenerComentariosPorUsuario } from "../controllers/RbacController.js"
+  obtenerComentariosPorUsuario,
+  obtenerUsuariosBaneados, 
+  buscarUsuario, 
+  desbanearUsuario} from "../controllers/RbacController.js"
 /**
  * @swagger
  * tags:
@@ -58,6 +61,10 @@ const router = Router()
  *       403:
  *         description: Sin permisos suficientes
  */
+
+/* ==========================================================================
+   REVIEWS
+   ========================================================================== */
 router.delete(
   "/reviews/:id",
   middlewareAutenticacion,
@@ -131,7 +138,10 @@ router.delete(
  *       403:
  *         description: Sin permisos suficientes
  */
-// Crear noticia — admin y editor
+
+/* ==========================================================================
+   NOTICIAS
+   ========================================================================== */
 router.post(
   "/news",
   middlewareAutenticacion,
@@ -144,6 +154,31 @@ router.post(
     res.status(201).json(noticia)
   })
 )
+
+
+router.patch(
+  "/news/:id",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.GESTIONAR_NOTICIAS),
+  manejadorAsincrono(async (req, res) => {
+    const noticia = await prisma.news.update({
+      where: { id: Number(req.params.id) },
+      data: req.body,
+    })
+    res.json(noticia)
+  })
+)
+
+router.delete(
+  "/news/:id",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.GESTIONAR_NOTICIAS),
+  manejadorAsincrono(async (req, res) => {
+    await prisma.news.delete({ where: { id: Number(req.params.id) } })
+    res.json({ message: "Noticia eliminada correctamente" })
+  })
+)
+
 
 /**
  * @swagger
@@ -193,30 +228,9 @@ router.post(
  *       403:
  *         description: Sin permisos suficientes
  */
-// Editar noticia — admin y editor
-router.patch(
-  "/news/:id",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.GESTIONAR_NOTICIAS),
-  manejadorAsincrono(async (req, res) => {
-    const noticia = await prisma.news.update({
-      where: { id: Number(req.params.id) },
-      data: req.body,
-    })
-    res.json(noticia)
-  })
-)
 
-// Borrar noticia — admin y editor
-router.delete(
-  "/news/:id",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.GESTIONAR_NOTICIAS),
-  manejadorAsincrono(async (req, res) => {
-    await prisma.news.delete({ where: { id: Number(req.params.id) } })
-    res.json({ message: "Noticia eliminada correctamente" })
-  })
-)
+
+
 
 /* ==========================================================================
    REPORTES — admin gestiona, editor solo ve
@@ -236,7 +250,10 @@ router.delete(
  *       403:
  *         description: Sin permisos suficientes
  */
-// Ver reportes — admin y editor
+
+/* ==========================================================================
+   REPORTES
+   ========================================================================== */
 router.get(
   "/reports",
   middlewareAutenticacion,
@@ -247,6 +264,28 @@ router.get(
       orderBy: { created_at: "desc" },
     })
     res.json(reportes)
+  })
+)
+
+router.patch(
+  "/reports/:id",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.GESTIONAR_REPORTES),
+  manejadorAsincrono(async (req, res) => {
+    const { status } = req.body
+    const reporte = await prisma.reports.update({
+      where: { id: Number(req.params.id) },
+      data: { status },
+      include: { users: true },
+    })
+    if (status === "resolved" && reporte.reporter_id) {
+      await emitirNotificacion({
+        user_id: reporte.reporter_id,
+        sender_id: req.user!.user_id,
+        type: "report_resolved",
+      })
+    }
+    res.json(reporte)
   })
 )
 
@@ -281,31 +320,7 @@ router.get(
  *       403:
  *         description: Sin permisos suficientes
  */
-// Resolver/rechazar reporte — solo admin
-router.patch(
-  "/reports/:id",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.GESTIONAR_REPORTES),
-  manejadorAsincrono(async (req, res) => {
-    const { status } = req.body
-    const reporte = await prisma.reports.update({
-      where: { id: Number(req.params.id) },
-      data: { status },
-      include: { users: true },
-    })
 
-    // Notificar al reportador si el reporte fue resuelto
-    if (status === "resolved" && reporte.reporter_id) {
-      await emitirNotificacion({
-        user_id: reporte.reporter_id,
-        sender_id: req.user!.user_id,
-        type: "report_resolved",
-      })
-    }
-
-    res.json(reporte)
-  })
-)
 
 /* ==========================================================================
    USUARIOS — solo admin puede cambiar roles y ver actividad
@@ -342,32 +357,7 @@ router.patch(
  *       403:
  *         description: Sin permisos suficientes
  */
-// Cambiar rol de un usuario — solo admin
-router.patch(
-  "/users/:id/role",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
-  manejadorAsincrono(async (req, res) => {
-    const { role } = req.body
-    const usuario = await prisma.users.update({
-      where: { id: Number(req.params.id) },
-      data: { role },
-      select: { id: true, username: true, role: true },
-    })
-    res.json(usuario)
-  })
-)
 
-/* ------------------------------------------------------------------------
-   BANEAR USUARIO — solo admin
-   Bloquea al usuario permanentemente e invalida todas sus sesiones
-   ---------------------------------------------------------------------- */
-router.patch(
-  "/users/:id/ban",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
-  manejadorAsincrono(banearUsuario)
-)
 
 /* ------------------------------------------------------------------------
    ENVIAR WARNING — solo admin
@@ -394,27 +384,10 @@ router.post(
  *       403:
  *         description: Sin permisos suficientes
  */
-// Ver actividad de todos los usuarios — solo admin
-router.get(
-  "/users/activity",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
-  manejadorAsincrono(async (req, res) => {
-    const actividad = await prisma.user_activity.findMany({
-      include: { users: { select: { id: true, username: true } } },
-      orderBy: { created_at: "desc" },
-      take: 100,
-    })
-    res.json(actividad)
-  })
-)
+
 
 /* ==========================================================================
-   ESTADÍSTICAS GENERALES — solo admin
-   --------------------------------------------------------------------------
-   La lógica de negocio y las queries están en:
-   - services/rbac.services.ts
-   - repositories/RbacRepository.ts
+   ESTADÍSTICAS
    ========================================================================== */
 router.get(
   "/stats",
@@ -466,7 +439,10 @@ router.get(
  *       403:
  *         description: Sin permisos suficientes
  */
-// Ver todos los pagos — solo admin
+
+/* ==========================================================================
+   PAGOS
+   ========================================================================== */
 router.get(
   "/payments",
   middlewareAutenticacion,
@@ -479,6 +455,95 @@ router.get(
     res.json(pagos)
   })
 )
+
+/* ==========================================================================
+   USUARIOS — rutas estáticas primero, luego con parámetros
+   ========================================================================== */
+router.get(
+  "/users/activity",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(async (req, res) => {
+    const actividad = await prisma.user_activity.findMany({
+      include: { users: { select: { id: true, username: true } } },
+      orderBy: { created_at: "desc" },
+      take: 100,
+    })
+    res.json(actividad)
+  })
+)
+
+/* ------------------------------------------------------------------------
+   USUARIOS BANEADOS — solo admin
+   ---------------------------------------------------------------------- */
+router.get(
+  "/users/banned",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerUsuariosBaneados)
+)
+
+router.get(
+  "/users/search",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(buscarUsuario)
+)
+
+router.patch(
+  "/users/:id/role",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(async (req, res) => {
+    const { role } = req.body
+    const usuario = await prisma.users.update({
+      where: { id: Number(req.params.id) },
+      data: { role },
+      select: { id: true, username: true, role: true },
+    })
+    res.json(usuario)
+  })
+)
+
+router.patch(
+  "/users/:id/ban",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(banearUsuario)
+)
+
+router.patch(
+  "/users/:id/unban",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(desbanearUsuario)
+)
+
+router.post(
+  "/users/:id/warning",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(enviarWarning)
+)
+
+router.get(
+  "/users/:id/comments",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerComentariosPorUsuario)
+)
+
+/* ==========================================================================
+   MODERACIÓN
+   ========================================================================== */
+router.get(
+  "/moderation/history",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerHistorialModeracion)
+)
+
+
 
 /* ==========================================================================
    MEMBRESÍA — ejemplo de límite de exhibición (para el futuro)

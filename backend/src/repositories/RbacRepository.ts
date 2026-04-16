@@ -209,4 +209,64 @@ obtenerComentariosPorUsuario: async (userId: number) => {
   })
 },
 
+/* ------------------------------------------------------------------------
+   OBTENER USUARIOS BANEADOS
+   Devuelve usuarios con locked_until en año 2099 o superior
+   ---------------------------------------------------------------------- */
+obtenerUsuariosBaneados: async () => {
+  return prisma.users.findMany({
+    where: {
+      locked_until: {
+        gte: new Date("2099-01-01")
+      }
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      membership: true,
+      locked_until: true,
+      created_at: true,
+    },
+    orderBy: { locked_until: "desc" }
+  })
+},
+
+/* ------------------------------------------------------------------------
+   BUSCAR USUARIO POR USERNAME O EMAIL
+   Para que el admin pueda encontrar un usuario específico
+   ---------------------------------------------------------------------- */
+buscarUsuario: async (query: string) => {
+  return prisma.users.findMany({
+    where: {
+      OR: [
+        { username: { contains: query } },
+        { email: { contains: query } },
+      ]
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      membership: true,
+      is_verified: true,
+      locked_until: true,
+      created_at: true,
+    },
+    take: 10,
+  })
+},
+
+/* ------------------------------------------------------------------------
+   DESBANEAR USUARIO
+   ---------------------------------------------------------------------- */
+desbanearUsuario: async (userId: number) => {
+  return prisma.users.update({
+    where: { id: userId },
+    data: { locked_until: null },
+  })
+},
+
 }

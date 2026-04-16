@@ -148,4 +148,27 @@ obtenerComentariosPorUsuarioService: async (userId: number) => {
   return rbacRepository.obtenerComentariosPorUsuario(userId)
 },
 
+/* ------------------------------------------------------------------------
+   OBTENER USUARIOS BANEADOS
+   ---------------------------------------------------------------------- */
+obtenerUsuariosBaneadosService: async () => {
+  return rbacRepository.obtenerUsuariosBaneados()
+},
+
+/* ------------------------------------------------------------------------
+   BUSCAR USUARIO
+   ---------------------------------------------------------------------- */
+buscarUsuarioService: async (query: string) => {
+  return rbacRepository.buscarUsuario(query)
+},
+
+/* ------------------------------------------------------------------------
+   DESBANEAR USUARIO
+   ---------------------------------------------------------------------- */
+desbanearUsuarioService: async (userId: number, adminId: number) => {
+  await rbacRepository.desbanearUsuario(userId)
+  await invalidarCacheUsuario(userId)
+  await rbacRepository.registrarAccionModeracion(adminId, "user_unbanned", userId)
+},
+
 }

@@ -4,7 +4,7 @@ import ReportsTable from "./components/ReportsTable"
 import UsersTable from "./components/UsersTable"
 import PaymentsTable from "./components/PaymentsTable"
 import ActivityTable from "./components/ActivityTable"
-import ModerationTable from "./components/ModerationTable"
+import ModerationPanel from "./components/ModerationPanel"
 import UserCommentsTable from "./components/UserCommentsTable"
 
 import SessionsChart from "./components/SessionsChart"
@@ -23,8 +23,6 @@ export default function App() {
   const [error, setError] = useState("")
   const [endpoint, setEndpoint] = useState("")
   const [alertas, setAlertas] = useState<any[]>([])
-  const [userIdBuscado, setUserIdBuscado] = useState<number | null>(null)
-
 
  // Escucha alertas de contenido bloqueado por la IA
   useEffect(() => {
@@ -193,13 +191,19 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
             { label: "📰 Noticias", endpoint: "/rbac/news" },
             { label: "📋 Actividad", endpoint: "/rbac/users/activity" },
             { label: "🌐 Sesiones", endpoint: "/rbac/stats/sessions" },
-            { label: "🛡️ Moderación", endpoint: "/rbac/moderation/history" },
-            
+            { label: "🛡️ Moderación", endpoint: "/rbac/moderation" },
           ].map(item => (
             <button
               key={item.endpoint}
-              className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition"
-              onClick={() => llamar(item.endpoint)}
+              className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition ${endpoint === item.endpoint ? "bg-gray-800 text-white" : ""}`}
+              onClick={() => {
+                if (item.endpoint === "/rbac/moderation") {
+                  setEndpoint("/rbac/moderation")
+                  setDatos(null)
+                } else {
+                  llamar(item.endpoint)
+                }
+              }}
             >
               {item.label}
             </button>
@@ -283,10 +287,7 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
               </button>
               <button
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold"
-                onClick={() => {
-                  setUserIdBuscado(alerta.userId)
-                  llamar(`/rbac/users/${alerta.userId}/comments`)
-                }}
+                onClick={() => llamar(`/rbac/users/${alerta.userId}/comments`)}
               >
                 💬 Ver comentarios
               </button>
@@ -303,31 +304,32 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
           {!datos && !error && (
             <p className="text-gray-500">Selecciona una sección del menú</p>
           )}
-          {datos && vista === "panel" && (
+                    {endpoint === "/rbac/moderation" && (
+            <ModerationPanel token={token} />
+          )}
+          {datos && vista === "panel" && endpoint !== "/rbac/moderation" && (
             <>
               {endpoint === "/rbac/stats" ? (
-                  <StatsPanel datos={datos} />
-                ) : endpoint === "/rbac/reports" ? (
-                  <ReportsTable datos={datos} />
-                ) : endpoint === "/users" ? (
-                  <UsersTable datos={datos} />
-                ) : endpoint === "/rbac/payments" ? (
-                  <PaymentsTable datos={datos} />
-                ) : endpoint === "/rbac/users/activity" ? (
-                  <ActivityTable datos={datos} />
-                ) : endpoint === "/rbac/stats/sessions" ? (
-                  <SessionsChart datos={datos} />
-                ) : endpoint === "/rbac/moderation/history" ? (
-                  <ModerationTable datos={datos} />
-                ) : endpoint.includes("/rbac/users/") && endpoint.includes("/comments") ? (
-                  <UserCommentsTable
-                    datos={datos}
-                    token={token}
-                    onCommentDeleted={(commentId) => {
-                      setDatos((prev: any) => prev.filter((c: any) => c.id !== commentId))
-                    }}
-                  />
-                ) : (
+                <StatsPanel datos={datos} />
+              ) : endpoint === "/rbac/reports" ? (
+                <ReportsTable datos={datos} />
+              ) : endpoint === "/users" ? (
+                <UsersTable datos={datos} />
+              ) : endpoint === "/rbac/payments" ? (
+                <PaymentsTable datos={datos} />
+              ) : endpoint === "/rbac/users/activity" ? (
+                <ActivityTable datos={datos} />
+              ) : endpoint === "/rbac/stats/sessions" ? (
+                <SessionsChart datos={datos} />
+              ) : endpoint.includes("/rbac/users/") && endpoint.includes("/comments") ? (
+                <UserCommentsTable
+                  datos={datos}
+                  token={token}
+                  onCommentDeleted={(commentId) => {
+                    setDatos((prev: any) => prev.filter((c: any) => c.id !== commentId))
+                  }}
+                />
+              ) : (
                 <pre className="bg-gray-900 p-6 rounded-xl text-green-400 text-sm overflow-auto">
                   {JSON.stringify(datos, null, 2)}
                 </pre>
