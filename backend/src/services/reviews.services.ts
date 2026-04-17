@@ -16,6 +16,8 @@ import type {
 } from "../schemas/reviews.js"
 import { ensureMovieRefId, findMovieRefIdByCandidate } from "./movieRef.services.js"
 import { verificarContenido } from "./content.services.js"
+import { rbacService } from "./rbac.services.js"
+import { ContentModerationError } from "../errors/AppErrors.js"
 
 /* ==========================================================================
    REVIEWS SERVICE
@@ -61,15 +63,27 @@ const verificarYCrearResenaUnica = async (
   data: CrearResenaDTO
 ) => {
   const movieId = await ensureMovieRefId(data.movie_id)
-  const existente = await reviewsRepository.findByUserAndMovie(
-    userId,
-    movieId
-  )
+  const existente = await reviewsRepository.findByUserAndMovie(userId, movieId)
   if (existente)
     throw new ConflictError("Ya tienes una reseña para esta película")
 
   // Moderación automática — analiza el contenido antes de guardarlo
-if (data.content) await verificarContenido(data.content, userId)
+  if (data.content) {
+    try {
+      await verificarContenido(data.content, userId)
+    } catch (error) {
+      if (error instanceof ContentModerationError) {
+        const esGrave = error.categorias.some(c =>
+          ["harassment", "sexual", "violence", "hate", "self-harm"].includes(c)
+        )
+        if (esGrave && userId) {
+          await rbacService.banearUsuarioService(userId, 0)
+          console.log(`[Moderación] Usuario ${userId} baneado automáticamente`)
+        }
+      }
+      throw error
+    }
+  }
 
   const resena = await reviewsRepository.create(userId, {
     ...data,
@@ -181,7 +195,21 @@ export const crearComentarioService = async (
   if (!resena) throw new NotFoundError("Reseña no encontrada")
 
   // Moderación automática — analiza el comentario antes de guardarlo
-await verificarContenido(data.content, userId)
+  try {
+    await verificarContenido(data.content, userId)
+  } catch (error) {
+    if (error instanceof ContentModerationError) {
+      const esGrave = error.categorias.some(c =>
+        ["harassment", "sexual", "violence", "hate", "self-harm"].includes(c)
+      )
+      if (esGrave && userId) {
+        await rbacService.banearUsuarioService(userId, 0)
+        console.log(`[Moderación] Usuario ${userId} baneado automáticamente`)
+      }
+    }
+    throw error
+  }
+
   const comentario = await reviewsRepository.createComment(
     id,
     userId,

@@ -11,6 +11,7 @@ import { UAParser } from "ua-parser-js"
 import { io, usuariosConectados } from "../config/socketio.config.js"
 import { invalidarCacheUsuario } from "../middlewares/rbac.middleware.js"
 
+
 export const rbacService = {
 
   /* ------------------------------------------------------------------------

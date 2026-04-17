@@ -68,7 +68,10 @@ export class TooManyRequestsError extends ApplicationError {
 
 /** 422 - Contenido inapropiado detectado por el sistema de moderación */
 export class ContentModerationError extends ApplicationError {
-  constructor(message = "Contenido no permitido detectado") {
+  categorias: string[]
+  
+  constructor(message = "Contenido no permitido detectado", categorias: string[] = []) {
     super(message, 422, "CONTENT_MODERATION_ERROR")
+    this.categorias = categorias
   }
 }

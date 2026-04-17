@@ -312,7 +312,7 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
               {endpoint === "/rbac/stats" ? (
                 <StatsPanel datos={datos} />
               ) : endpoint === "/rbac/reports" ? (
-                <ReportsTable datos={datos} />
+                <ReportsTable datos={datos} token={token} />
               ) : endpoint === "/users" ? (
                 <UsersTable datos={datos} />
               ) : endpoint === "/rbac/payments" ? (

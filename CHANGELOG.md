@@ -5,6 +5,37 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [16-04-2026] — Baneo automático por IA 
+
+### Descripción
+Implementación de baneo automático cuando OpenAI detecta contenido
+grave. El admin puede revisar y revocar desde el historial de moderación.
+
+### Archivos modificados
+- `backend/src/errors/AppErrors.ts` — ContentModerationError acepta categorías
+- `backend/src/services/content.services.ts` — lanza ContentModerationError con categorías
+- `backend/src/services/reviews.services.ts` — baneo automático si contenido es grave
+
+### Flujo
+1. OpenAI detecta contenido grave (harassment, sexual, violence, hate, self-harm)
+2. ContentModerationError incluye las categorías detectadas
+3. reviews.services.ts evalúa si el contenido es grave
+4. Si es grave → baneo automático del usuario
+5. Admin notificado en tiempo real via Socket.IO
+6. Admin puede revocar el baneo desde el panel de moderación
+
+### Categorías que activan el baneo automático
+- harassment
+- sexual
+- violence
+- hate
+- self-harm
+
+### Probado
+✅ Contenido grave → usuario baneado automáticamente
+✅ Usuario baneado → error 403 al intentar hacer login
+✅ Admin puede revocar el baneo desde el panel
+
 ## [16-04-2026] — Historial de moderación enriquecido
 
 ### Descripción

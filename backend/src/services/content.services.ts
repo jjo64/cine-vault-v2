@@ -103,7 +103,10 @@ export const moderarTexto = async (texto: string): Promise<ModerationResult> => 
  * Lanza un error si el texto contiene contenido inapropiado.
  * Es el helper que usan los servicios directamente.
  */
-export const verificarContenido = async (texto: string, userId?: number): Promise<void> => {
+export const verificarContenido = async (
+  texto: string,
+  userId?: number
+): Promise<void> => {
   if (!texto || texto.trim().length === 0) return
 
   const resultado = await moderarTexto(texto)
@@ -114,37 +117,41 @@ export const verificarContenido = async (texto: string, userId?: number): Promis
       .map(([categoria]) => categoria)
       .join(", ")
 
-  // Alerta en tiempo real a todos los admins conectados
-      // Buscamos los datos del usuario para enriquecer la alerta
-let datosUsuario = null
-if (userId) {
-  datosUsuario = await rbacRepository.obtenerDatosUsuarioModeracion(userId)
-}
+    const categoriasList = Object.entries(resultado.categories)
+      .filter(([_, valor]) => valor)
+      .map(([categoria]) => categoria)
 
-alertarAdmins("contenido_bloqueado", {
-  categorias,
-  timestamp: new Date().toISOString(),
-  texto: texto.substring(0, 100),
-  userId,
-  usuario: datosUsuario ? {
-    username: datosUsuario.username,
-    email: datosUsuario.email,
-    role: datosUsuario.role,
-    membership: datosUsuario.membership,
-    reportes_previos: datosUsuario._count.reports,
-  } : null,
-})
+    // Registrar en historial
+    await rbacRepository.registrarAccionModeracion(
+      null,
+      "content_blocked",
+      userId,
+      `Categorías: ${categorias} | Texto: "${texto.substring(0, 150)}"`
+    )
 
-  // Registrar en el historial de moderación
-if (userId) {
-  await rbacRepository.registrarAccionModeracion(
-  null,
-  "content_blocked",
-  userId,
-  `Categorías: ${categorias} | Texto: "${texto.substring(0, 150)}"`
-)
-}
+    // Alertar admins
+    const datosUsuario = userId
+      ? await rbacRepository.obtenerDatosUsuarioModeracion(userId)
+      : null
 
-    throw new ContentModerationError(`Contenido no permitido: ${categorias}`)
+    alertarAdmins("contenido_bloqueado", {
+      categorias,
+      timestamp: new Date().toISOString(),
+      texto: texto.substring(0, 100),
+      userId,
+      usuario: datosUsuario ? {
+        username: datosUsuario.username,
+        email: datosUsuario.email,
+        role: datosUsuario.role,
+        membership: datosUsuario.membership,
+        reportes_previos: datosUsuario._count.reports,
+      } : null,
+      esGrave: categoriasList.some(c =>
+        ["harassment", "sexual", "violence", "hate", "self-harm"].includes(c)
+      ),
+    })
+
+    // Lanzar error con las categorías para que el caller pueda actuar
+    throw new ContentModerationError(`Contenido no permitido: ${categorias}`, categoriasList)
   }
 }
