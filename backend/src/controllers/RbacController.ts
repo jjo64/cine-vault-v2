@@ -113,3 +113,30 @@ export const desbanearUsuario = async (req: Request, res: Response) => {
   )
   res.json({ message: "Usuario desbaneado correctamente" })
 }
+
+/* --------------------------------------------------------------------------
+   AÑADIR STRIKE
+   -------------------------------------------------------------------------- */
+export const añadirStrike = async (req: Request, res: Response) => {
+  const { tipo } = req.body
+  const totalStrikes = await rbacService.añadirStrikeService(
+    Number(req.params.id),
+    tipo,
+    req.user!.user_id
+  )
+  res.json({ 
+    message: "Strike añadido correctamente",
+    total_strikes: totalStrikes,
+    bloqueado: totalStrikes >= 3
+  })
+}
+
+/* --------------------------------------------------------------------------
+   OBTENER STRIKES DE UN USUARIO
+   -------------------------------------------------------------------------- */
+export const obtenerStrikesUsuario = async (req: Request, res: Response) => {
+  const strikes = await rbacService.obtenerStrikesUsuarioService(
+    Number(req.params.id)
+  )
+  res.json(strikes)
+}

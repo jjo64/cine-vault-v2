@@ -5,6 +5,40 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [16-04-2026] — Sistema de strikes y mejoras de moderación
+
+### Descripción
+Implementación del sistema de strikes para infracciones leves.
+Al acumular 3 strikes del mismo tipo el usuario queda bloqueado
+temporalmente. Al desbanear se limpian los strikes automáticamente.
+
+### Archivos modificados
+- `backend/prisma/schema.prisma` — nueva tabla user_strikes
+- `backend/src/repositories/RbacRepository.ts` — añadirStrike, contarStrikesActivos, obtenerStrikesUsuario, limpiarStrikesUsuario, banearUsuario acepta fecha opcional
+- `backend/src/services/rbac.services.ts` — añadirStrikeService, obtenerStrikesUsuarioService, desbanearUsuarioService limpia strikes
+- `backend/src/controllers/RbacController.ts` — añadirStrike, obtenerStrikesUsuario
+- `backend/src/routes/rbac.routes.ts` — POST /users/:id/strikes, GET /users/:id/strikes
+
+### Sistema de strikes
+| Tipo | Strikes | Bloqueo |
+|---|---|---|
+| spoiler | 3 | 7 días |
+| spam | 3 | 14 días |
+| acoso | 3 | 30 días |
+
+### Reglas
+- Los strikes caducan después de 90 días
+- Al llegar a 3 strikes → bloqueo temporal automático
+- Al desbanear manualmente → strikes eliminados automáticamente
+
+### BD
+- Nueva tabla `user_strikes` via `npx prisma db push`
+
+### Probado
+✅ Strike 1-2 → bloqueado: false
+✅ Strike 3 → bloqueado: true, bloqueo temporal aplicado
+✅ Desbanear → strikes eliminados, contador reiniciado
+
 ## [16-04-2026] — Baneo automático por IA 
 
 ### Descripción

@@ -100,16 +100,17 @@ export const rbacService = {
   /* ------------------------------------------------------------------------
      DESBANEAR USUARIO
      ---------------------------------------------------------------------- */
-  desbanearUsuarioService: async (userId: number, adminId: number) => {
-    await rbacRepository.desbanearUsuario(userId)
-    await invalidarCacheUsuario(userId)
-    await rbacRepository.registrarAccionModeracion(
-      adminId,
-      "user_unbanned",
-      userId,
-      `Usuario ${userId} desbaneado`
-    )
-  },
+desbanearUsuarioService: async (userId: number, adminId: number) => {
+  await rbacRepository.desbanearUsuario(userId)
+  await rbacRepository.limpiarStrikesUsuario(userId)  // ← limpia los strikes
+  await invalidarCacheUsuario(userId)
+  await rbacRepository.registrarAccionModeracion(
+    adminId,
+    "user_unbanned",
+    userId,
+    `Usuario ${userId} desbaneado y strikes eliminados`
+  )
+},
 
   /* ------------------------------------------------------------------------
      ENVIAR WARNING
@@ -159,5 +160,48 @@ export const rbacService = {
   buscarUsuarioService: async (query: string) => {
     return rbacRepository.buscarUsuario(query)
   },
+
+/* ------------------------------------------------------------------------
+   SISTEMA DE STRIKES
+   ---------------------------------------------------------------------- */
+añadirStrikeService: async (userId: number, tipo: string, adminId: number) => {
+  // Añadir el strike
+  await rbacRepository.añadirStrike(userId, tipo, adminId)
+
+  // Contar strikes activos del mismo tipo en los últimos 90 días
+  const totalStrikes = await rbacRepository.contarStrikesActivos(userId, tipo)
+
+  // Lógica de bloqueo automático al llegar a 3 strikes
+  if (totalStrikes >= 3) {
+    const fechaBloqueo = new Date()
+
+    switch (tipo) {
+      case "spoiler":
+        fechaBloqueo.setDate(fechaBloqueo.getDate() + 7)
+        break
+      case "spam":
+        fechaBloqueo.setDate(fechaBloqueo.getDate() + 14)
+        break
+      case "acoso":
+        fechaBloqueo.setDate(fechaBloqueo.getDate() + 30)
+        break
+    }
+
+    await rbacRepository.banearUsuario(userId, fechaBloqueo)
+    await invalidarCacheUsuario(userId)
+    await rbacRepository.registrarAccionModeracion(
+      adminId,
+      "user_banned",
+      userId,
+      `Bloqueo automático por 3 strikes de tipo: ${tipo}`
+    )
+  }
+
+  return totalStrikes
+},
+
+obtenerStrikesUsuarioService: async (userId: number) => {
+  return rbacRepository.obtenerStrikesUsuario(userId)
+},
 
 }

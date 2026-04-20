@@ -94,18 +94,16 @@ obtenerPropietarioComentario: async (commentId: number) => {
 
 /* ------------------------------------------------------------------------
    BANEAR USUARIO
-   Bloquea al usuario permanentemente estableciendo locked_until
-   a una fecha muy lejana e invalida todas sus sesiones activas.
+   Bloquea al usuario estableciendo locked_until a una fecha específica.
+   Si no se pasa fecha, el bloqueo es permanente (año 2099).
+   Si se pasa fecha, el bloqueo es temporal (usado por el sistema de strikes).
+   También invalida todas las sesiones activas del usuario.
    ---------------------------------------------------------------------- */
-banearUsuario: async (userId: number) => {
-  // Fecha muy lejana — equivale a baneo permanente
-  const fechaBaneo = new Date("2099-12-31")
-
-  // Bloqueamos al usuario y eliminamos todas sus sesiones activas
+banearUsuario: async (userId: number, fechaBloqueo?: Date) => {
   await Promise.all([
     prisma.users.update({
       where: { id: userId },
-      data: { locked_until: fechaBaneo },
+      data: { locked_until: fechaBloqueo ?? new Date("2099-12-31") },
     }),
     prisma.sessions.deleteMany({
       where: { user_id: userId },
@@ -236,7 +234,7 @@ obtenerUsuariosBaneados: async () => {
   return prisma.users.findMany({
     where: {
       locked_until: {
-        gte: new Date("2099-01-01")
+        gt: new Date() // cualquier fecha futura
       }
     },
     select: {
@@ -285,6 +283,53 @@ desbanearUsuario: async (userId: number) => {
   return prisma.users.update({
     where: { id: userId },
     data: { locked_until: null },
+  })
+},
+
+/* ------------------------------------------------------------------------
+   SISTEMA DE STRIKES
+   ---------------------------------------------------------------------- */
+
+// Añadir un strike a un usuario
+añadirStrike: async (userId: number, tipo: string, adminId?: number) => {
+  return prisma.user_strikes.create({
+    data: {
+      user_id: userId,
+      tipo,
+      admin_id: adminId || null,
+    }
+  })
+},
+
+// Contar strikes activos de un usuario (últimos 90 días)
+contarStrikesActivos: async (userId: number, tipo: string) => {
+  const fechaLimite = new Date()
+  fechaLimite.setDate(fechaLimite.getDate() - 90)
+
+  return prisma.user_strikes.count({
+    where: {
+      user_id: userId,
+      tipo,
+      created_at: { gte: fechaLimite }
+    }
+  })
+},
+
+// Obtener todos los strikes de un usuario
+obtenerStrikesUsuario: async (userId: number) => {
+  return prisma.user_strikes.findMany({
+    where: { user_id: userId },
+    orderBy: { created_at: "desc" },
+  })
+},
+
+/* ------------------------------------------------------------------------
+   LIMPIAR STRIKES DE UN USUARIO
+   Elimina todos los strikes activos al desbanear manualmente
+   ---------------------------------------------------------------------- */
+limpiarStrikesUsuario: async (userId: number) => {
+  return prisma.user_strikes.deleteMany({
+    where: { user_id: userId }
   })
 },
 

@@ -18,16 +18,22 @@ import { prisma } from "../lib/prisma.js"
 import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
 import { rbacRepository } from "../repositories/RbacRepository.js"
-import { obtenerEstadisticas, 
-  borrarComentario, 
-  obtenerEstadisticasSesiones, 
-  banearUsuario, 
-  enviarWarning, 
-  obtenerHistorialModeracion, 
+import {
+  obtenerEstadisticas,
+  borrarComentario,
+  obtenerEstadisticasSesiones,
+  banearUsuario,
+  desbanearUsuario,
+  enviarWarning,
+  obtenerHistorialModeracion,
   obtenerComentariosPorUsuario,
-  obtenerUsuariosBaneados, 
-  buscarUsuario, 
-  desbanearUsuario} from "../controllers/RbacController.js"
+  obtenerUsuariosBaneados,
+  buscarUsuario,
+  añadirStrike,
+  obtenerStrikesUsuario,
+} from "../controllers/RbacController.js"
+
+
 /**
  * @swagger
  * tags:
@@ -565,5 +571,22 @@ router.get(
 //     // ... crear exhibición
 //   })
 // )
+
+/* ------------------------------------------------------------------------
+   STRIKES — solo admin
+   ---------------------------------------------------------------------- */
+router.post(
+  "/users/:id/strikes",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(añadirStrike)
+)
+
+router.get(
+  "/users/:id/strikes",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerStrikesUsuario)
+)
 
 export default router
