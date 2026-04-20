@@ -5,6 +5,100 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [20-04-2026] — Sistema de gestión de reportes completo
+
+### Descripción
+Rediseño completo del flujo de gestión de reportes en el panel de administración.
+Se reemplaza el sistema de dos botones (Resolver/Rechazar) por un modal de gestión
+completa que permite al admin ver el contenido reportado, los datos del usuario
+afectado y tomar la acción de moderación apropiada desde un único punto.
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — nuevos métodos: obtenerReportes, actualizarReporte
+- `backend/src/services/rbac.services.ts` — nuevos servicios: obtenerReportesService, actualizarReporteService; corrección banearUsuarioService; fix strikes en historial; mensajes automáticos de warning
+- `backend/src/controllers/RbacController.ts` — nuevos endpoints: obtenerReportes, actualizarReporte; corrección banearUsuario acepta locked_until del body
+- `backend/src/routes/rbac.routes.ts` — rutas de reportes refactorizadas a patrón SOLID; eliminadas 3 rutas duplicadas
+- `admin-panel/src/components/ReportsTable.tsx` — rediseño completo con modal de gestión
+
+### Añadido
+
+#### Modal de gestión de reportes
+Al pulsar "Gestionar" en un reporte pendiente se abre un modal con:
+- Contenido completo de la reseña reportada
+- Datos del usuario afectado (rol, membresía)
+- Acciones disponibles: Strike (spoiler/spam/acoso), Warning, Ban temporal 30d, Ban permanente, Rechazar reporte, Resolver sin acción
+
+#### Tabla de reportes simplificada
+La tabla ahora muestra solo: ID, usuario que reporta, motivo, estado.
+El botón "Gestionar" únicamente aparece en reportes pendientes.
+Los reportes resueltos/rechazados no muestran acciones.
+
+#### Mensajes automáticos de warning
+Al enviar un warning el usuario recibe un mensaje personalizado según el tipo
+de infracción detectada automáticamente del contenido del reporte:
+
+| Tipo detectado | Criterio de detección |
+|---|---|
+| spoiler | contenido contiene "spoiler" |
+| spam | contenido contiene "spam" o "publicidad" |
+| acoso | contenido contiene "acoso" u "ofensivo" |
+| inapropiado | fallback genérico |
+
+Todos los mensajes incluyen el aviso:
+"Un comportamiento reiterado puede acarrear desde un strike hasta un baneo
+permanente de tu cuenta."
+
+#### Strikes en historial de moderación
+Los strikes ahora quedan registrados en el historial de moderación.
+Acción registrada: `strike_added` con el tipo y el total de strikes activos.
+
+### Corregido
+
+#### SOLID — rutas de reportes
+`GET /rbac/reports` y `PATCH /rbac/reports/:id` tenían queries Prisma inline
+en las rutas, saltándose las capas Controller → Service → Repository.
+Refactorizadas al patrón correcto.
+
+#### Rutas duplicadas eliminadas
+Las siguientes rutas estaban definidas dos veces en `rbac.routes.ts`:
+- `POST /users/:id/warning`
+- `GET /users/:id/comments`
+- `GET /moderation/history`
+
+#### Ban temporal no funcionaba
+`banearUsuario` en el controller ignoraba el body y siempre hacía ban permanente.
+Ahora lee `locked_until` del body — si viene fecha es temporal, si no es permanente.
+
+#### `reviews.users` incluido en GET /rbac/reports
+El endpoint ahora devuelve el autor de la reseña (usuario reportado) dentro de
+`reviews.users` para que el modal pueda identificarlo y aplicar acciones.
+
+### Flujo completo de gestión de un reporte
+```
+Admin abre panel → selecciona Reportes
+→ tabla muestra ID, reporter, motivo, estado
+→ pulsa "Gestionar" en reporte pendiente
+→ modal muestra contenido + datos usuario afectado
+→ admin elige acción:
+    Strike    → POST /rbac/users/:id/strikes + PATCH /rbac/reports/:id (resolved)
+    Warning   → POST /rbac/users/:id/warning + PATCH /rbac/reports/:id (resolved)
+    Ban temp  → PATCH /rbac/users/:id/ban { locked_until: +30d } + PATCH /rbac/reports/:id (resolved)
+    Ban perm  → PATCH /rbac/users/:id/ban { locked_until: 2099 } + PATCH /rbac/reports/:id (resolved)
+    Rechazar  → PATCH /rbac/reports/:id (rejected)
+    Resolver  → PATCH /rbac/reports/:id (resolved)
+→ modal se cierra, tabla se actualiza automáticamente
+→ acción queda registrada en historial de moderación
+```
+
+### Probado
+✅ Modal abre con contenido y datos del usuario afectado
+✅ Warning enviado → notificación creada en BD (type: warning, read: false)
+✅ Warning enviado → mensaje personalizado emitido via Socket.IO
+✅ Strike añadido → aparece en historial de moderación
+✅ Reporte resuelto → desaparece el botón "Gestionar" en la tabla
+✅ Ban temporal → acepta fecha desde el body correctamente
+✅ Historial de moderación registra: strike_added, warning_sent, user_banned
+
 ## [16-04-2026] — Sistema de strikes y mejoras de moderación
 
 ### Descripción

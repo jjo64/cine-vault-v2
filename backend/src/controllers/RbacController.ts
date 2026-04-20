@@ -42,11 +42,14 @@ export const borrarComentario = async (req: Request, res: Response) => {
    Bloquea al usuario permanentemente e invalida sus sesiones
    -------------------------------------------------------------------------- */
 export const banearUsuario = async (req: Request, res: Response) => {
+  const { locked_until } = req.body
+  const fechaBloqueo = locked_until ? new Date(locked_until) : undefined
   await rbacService.banearUsuarioService(
     Number(req.params.id),
-    req.user!.user_id  // ← ID del admin que ejecuta la acción
+    req.user!.user_id,
+    fechaBloqueo           // undefined = permanente, Date = temporal
   )
-  res.json({ message: "Usuario baneado permanentemente" })
+  res.json({ message: "Usuario baneado correctamente" })
 }
 
 /* --------------------------------------------------------------------------
@@ -139,4 +142,26 @@ export const obtenerStrikesUsuario = async (req: Request, res: Response) => {
     Number(req.params.id)
   )
   res.json(strikes)
+}
+
+/* --------------------------------------------------------------------------
+   OBTENER REPORTES
+   -------------------------------------------------------------------------- */
+export const obtenerReportes = async (req: Request, res: Response) => {
+  const reportes = await rbacService.obtenerReportesService()
+  res.json(reportes)
+}
+
+/* --------------------------------------------------------------------------
+   ACTUALIZAR REPORTE — resolver o rechazar con nota de moderación
+   -------------------------------------------------------------------------- */
+export const actualizarReporte = async (req: Request, res: Response) => {
+  const { status, resolution_note } = req.body
+  const reporte = await rbacService.actualizarReporteService(
+    Number(req.params.id),
+    status,
+    resolution_note ?? "",
+    req.user!.user_id
+  )
+  res.json(reporte)
 }

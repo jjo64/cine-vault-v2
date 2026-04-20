@@ -86,16 +86,23 @@ export const rbacService = {
   /* ------------------------------------------------------------------------
      BANEAR USUARIO
      ---------------------------------------------------------------------- */
-  banearUsuarioService: async (userId: number, adminId: number) => {
-    await rbacRepository.banearUsuario(userId)
-    await invalidarCacheUsuario(userId)
-    await rbacRepository.registrarAccionModeracion(
-      adminId,
-      "user_banned",
-      userId,
-      `Usuario ${userId} baneado permanentemente`
-    )
-  },
+banearUsuarioService: async (
+  userId: number,
+  adminId: number,
+  fechaBloqueo?: Date          // ← nuevo parámetro opcional
+) => {
+  await rbacRepository.banearUsuario(userId, fechaBloqueo)
+  await invalidarCacheUsuario(userId)
+  const esTemporalLabel = fechaBloqueo
+    ? `Ban temporal hasta ${fechaBloqueo.toISOString().split("T")[0]}`
+    : "Ban permanente"
+  await rbacRepository.registrarAccionModeracion(
+    adminId,
+    "user_banned",
+    userId,
+    `${esTemporalLabel} — usuario ${userId}`
+  )
+},
 
   /* ------------------------------------------------------------------------
      DESBANEAR USUARIO
@@ -115,24 +122,63 @@ desbanearUsuarioService: async (userId: number, adminId: number) => {
   /* ------------------------------------------------------------------------
      ENVIAR WARNING
      ---------------------------------------------------------------------- */
-  enviarWarningService: async (userId: number, contenidoOfensivo: string, adminId: number) => {
-    await rbacRepository.crearWarning(userId, contenidoOfensivo)
-    const socketId = usuariosConectados.get(userId)
-    if (socketId) {
-      io.to(socketId).emit("warning_recibido", {
-        mensaje: "Has recibido un aviso por contenido inapropiado. En la siguiente infracción podrás ser baneado permanentemente.",
-        contenido: contenidoOfensivo,
-        timestamp: new Date().toISOString(),
-      })
-    }
-    await rbacRepository.registrarAccionModeracion(
-      adminId,
-      "warning_sent",
-      userId,
-      `Contenido ofensivo: ${contenidoOfensivo.substring(0, 100)}`
-    )
-  },
+enviarWarningService: async (userId: number, contenidoOfensivo: string, adminId: number) => {
+  const texto = contenidoOfensivo ?? "sin detalle"
 
+  // Detectar tipo de infracción por palabras clave del contenido
+  const mensajesPorTipo: Record<string, string> = {
+    spoiler:
+      "Has recibido un aviso por publicar spoilers sin marcar. " +
+      "Recuerda usar la opción de spoiler al escribir reseñas para no arruinar la experiencia de otros usuarios. " +
+      "Un comportamiento reiterado puede acarrear desde un strike hasta un baneo permanente de tu cuenta.",
+    spam:
+      "Has recibido un aviso por publicar contenido promocional o spam. " +
+      "Este tipo de contenido no está permitido en CineVault. " +
+      "Un comportamiento reiterado puede acarrear desde un strike hasta un baneo permanente de tu cuenta.",
+    acoso:
+      "Has recibido un aviso por comportamiento inapropiado hacia otros usuarios. " +
+      "CineVault es un espacio de respeto y diversidad. " +
+      "Un comportamiento reiterado puede acarrear desde un strike hasta un baneo permanente de tu cuenta.",
+    inapropiado:
+      "Has recibido un aviso por publicar contenido que viola las normas de CineVault. " +
+      "El contenido ha sido revisado y eliminado por nuestro equipo de moderación. " +
+      "Un comportamiento reiterado puede acarrear desde un strike hasta un baneo permanente de tu cuenta.",
+  }
+
+  // Detectar tipo según el contenido del reporte
+  const tipoDetectado = texto.toLowerCase().includes("spoiler")
+    ? "spoiler"
+    : texto.toLowerCase().includes("spam") || texto.toLowerCase().includes("publicidad")
+    ? "spam"
+    : texto.toLowerCase().includes("acoso") || texto.toLowerCase().includes("ofensivo")
+    ? "acoso"
+    : "inapropiado"
+
+  const mensajeWarning =
+    mensajesPorTipo[tipoDetectado] ??
+    "Has recibido un aviso de nuestro equipo de moderación. " +
+    "Por favor revisa las normas de la comunidad de CineVault. " +
+    "Un comportamiento reiterado puede acarrear desde un strike hasta un baneo permanente de tu cuenta."
+
+  await rbacRepository.crearWarning(userId, texto)
+
+  // Notificar al usuario en tiempo real si está conectado
+  const socketId = usuariosConectados.get(userId)
+  if (socketId) {
+    io.to(socketId).emit("warning_recibido", {
+      mensaje: mensajeWarning,
+      contenido: texto,
+      timestamp: new Date().toISOString(),
+    })
+  }
+
+  await rbacRepository.registrarAccionModeracion(
+    adminId,
+    "warning_sent",
+    userId,
+    `Contenido ofensivo: ${texto.substring(0, 100)}`
+  )
+},
   /* ------------------------------------------------------------------------
      HISTORIAL DE MODERACIÓN
      ---------------------------------------------------------------------- */
@@ -165,16 +211,23 @@ desbanearUsuarioService: async (userId: number, adminId: number) => {
    SISTEMA DE STRIKES
    ---------------------------------------------------------------------- */
 añadirStrikeService: async (userId: number, tipo: string, adminId: number) => {
-  // Añadir el strike
+  // 1. Añadir el strike
   await rbacRepository.añadirStrike(userId, tipo, adminId)
 
-  // Contar strikes activos del mismo tipo en los últimos 90 días
+  // 2. Contar strikes activos DESPUÉS de añadir
   const totalStrikes = await rbacRepository.contarStrikesActivos(userId, tipo)
 
-  // Lógica de bloqueo automático al llegar a 3 strikes
+  // 3. Registrar en historial
+  await rbacRepository.registrarAccionModeracion(
+    adminId,
+    "strike_added",
+    userId,
+    `Strike de tipo "${tipo}" añadido (total activos: ${totalStrikes})`
+  )
+
+  // 4. Bloqueo automático al llegar a 3
   if (totalStrikes >= 3) {
     const fechaBloqueo = new Date()
-
     switch (tipo) {
       case "spoiler":
         fechaBloqueo.setDate(fechaBloqueo.getDate() + 7)
@@ -186,7 +239,6 @@ añadirStrikeService: async (userId: number, tipo: string, adminId: number) => {
         fechaBloqueo.setDate(fechaBloqueo.getDate() + 30)
         break
     }
-
     await rbacRepository.banearUsuario(userId, fechaBloqueo)
     await invalidarCacheUsuario(userId)
     await rbacRepository.registrarAccionModeracion(
@@ -202,6 +254,47 @@ añadirStrikeService: async (userId: number, tipo: string, adminId: number) => {
 
 obtenerStrikesUsuarioService: async (userId: number) => {
   return rbacRepository.obtenerStrikesUsuario(userId)
+},
+
+/* ------------------------------------------------------------------------
+   OBTENER REPORTES
+   ---------------------------------------------------------------------- */
+obtenerReportesService: async () => {
+  return rbacRepository.obtenerReportes()
+},
+
+/* ------------------------------------------------------------------------
+   ACTUALIZAR REPORTE
+   Cambia el estado, registra la acción de moderación y notifica
+   al reporter si el reporte se marca como resuelto.
+   ---------------------------------------------------------------------- */
+actualizarReporteService: async (
+  reporteId: number,
+  status: "resolved" | "rejected",
+  resolutionNote: string,
+  adminId: number
+) => {
+  const reporte = await rbacRepository.actualizarReporte(reporteId, status, resolutionNote)
+
+  // Notificar al reporter si el reporte fue resuelto
+  if (status === "resolved" && reporte.reporter_id) {
+    const socketId = usuariosConectados.get(reporte.reporter_id)
+    if (socketId) {
+      io.to(socketId).emit("nueva_notificacion", {
+        type: "report_resolved",
+        mensaje: "Tu reporte ha sido revisado y resuelto por un administrador.",
+      })
+    }
+  }
+
+  await rbacRepository.registrarAccionModeracion(
+    adminId,
+    status === "resolved" ? "report_resolved" : "report_rejected",
+    undefined,
+    `Reporte #${reporteId} marcado como ${status}: ${resolutionNote}`
+  )
+
+  return reporte
 },
 
 }

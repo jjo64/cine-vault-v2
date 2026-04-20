@@ -31,6 +31,8 @@ import {
   buscarUsuario,
   añadirStrike,
   obtenerStrikesUsuario,
+  obtenerReportes,
+  actualizarReporte
 } from "../controllers/RbacController.js"
 
 
@@ -264,35 +266,14 @@ router.get(
   "/reports",
   middlewareAutenticacion,
   verificarPermiso(PERMISOS.VER_REPORTES),
-  manejadorAsincrono(async (req, res) => {
-    const reportes = await prisma.reports.findMany({
-      include: { users: true, reviews: true },
-      orderBy: { created_at: "desc" },
-    })
-    res.json(reportes)
-  })
+  manejadorAsincrono(obtenerReportes)
 )
 
 router.patch(
   "/reports/:id",
   middlewareAutenticacion,
   verificarPermiso(PERMISOS.GESTIONAR_REPORTES),
-  manejadorAsincrono(async (req, res) => {
-    const { status } = req.body
-    const reporte = await prisma.reports.update({
-      where: { id: Number(req.params.id) },
-      data: { status },
-      include: { users: true },
-    })
-    if (status === "resolved" && reporte.reporter_id) {
-      await emitirNotificacion({
-        user_id: reporte.reporter_id,
-        sender_id: req.user!.user_id,
-        type: "report_resolved",
-      })
-    }
-    res.json(reporte)
-  })
+  manejadorAsincrono(actualizarReporte)
 )
 
 /**
@@ -364,18 +345,6 @@ router.patch(
  *         description: Sin permisos suficientes
  */
 
-
-/* ------------------------------------------------------------------------
-   ENVIAR WARNING — solo admin
-   Envía una advertencia al usuario con el contenido ofensivo
-   ---------------------------------------------------------------------- */
-router.post(
-  "/users/:id/warning",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
-  manejadorAsincrono(enviarWarning)
-)
-
 /**
  * @swagger
  * /rbac/users/activity:
@@ -407,28 +376,6 @@ router.get(
   middlewareAutenticacion,
   verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
   manejadorAsincrono(obtenerEstadisticasSesiones)
-)
-
-/* ------------------------------------------------------------------------
-   HISTORIAL DE MODERACIÓN — solo admin
-   Muestra las últimas acciones de moderación tomadas por los admins
-   ---------------------------------------------------------------------- */
-router.get(
-  "/moderation/history",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
-  manejadorAsincrono(obtenerHistorialModeracion)
-)
-
-/* ------------------------------------------------------------------------
-   COMENTARIOS DE UN USUARIO — solo admin
-   El admin puede revisar el historial de comentarios de un usuario
-   ---------------------------------------------------------------------- */
-router.get(
-  "/users/:id/comments",
-  middlewareAutenticacion,
-  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
-  manejadorAsincrono(obtenerComentariosPorUsuario)
 )
 
 /**
@@ -525,12 +472,22 @@ router.patch(
   manejadorAsincrono(desbanearUsuario)
 )
 
+/* ------------------------------------------------------------------------
+   ENVIAR WARNING — solo admin
+   Envía una advertencia al usuario con el contenido ofensivo
+   ---------------------------------------------------------------------- */
+
 router.post(
   "/users/:id/warning",
   middlewareAutenticacion,
   verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
   manejadorAsincrono(enviarWarning)
 )
+
+/* ------------------------------------------------------------------------
+   COMENTARIOS DE UN USUARIO — solo admin
+   El admin puede revisar el historial de comentarios de un usuario
+   ---------------------------------------------------------------------- */
 
 router.get(
   "/users/:id/comments",
@@ -539,9 +496,10 @@ router.get(
   manejadorAsincrono(obtenerComentariosPorUsuario)
 )
 
-/* ==========================================================================
-   MODERACIÓN
-   ========================================================================== */
+/* ------------------------------------------------------------------------
+   HISTORIAL DE MODERACIÓN — solo admin
+   Muestra las últimas acciones de moderación tomadas por los admins
+   ---------------------------------------------------------------------- */
 router.get(
   "/moderation/history",
   middlewareAutenticacion,

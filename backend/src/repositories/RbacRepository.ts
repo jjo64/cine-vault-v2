@@ -177,7 +177,7 @@ obtenerHistorialModeracion: async () => {
   const historial = await prisma.user_activity.findMany({
     where: {
       action: {
-        in: ["content_blocked", "user_banned", "warning_sent", "user_unbanned"]
+        in: ["content_blocked", "user_banned", "warning_sent", "user_unbanned", "strike_added"]
       }
     },
     include: {
@@ -330,6 +330,44 @@ obtenerStrikesUsuario: async (userId: number) => {
 limpiarStrikesUsuario: async (userId: number) => {
   return prisma.user_strikes.deleteMany({
     where: { user_id: userId }
+  })
+},
+
+/* ------------------------------------------------------------------------
+   OBTENER REPORTES
+   Incluye el reporter (users), la reseña y el autor de la reseña
+   (reviews.users) para que el modal de gestión tenga todos los datos.
+   ---------------------------------------------------------------------- */
+obtenerReportes: async () => {
+  return prisma.reports.findMany({
+    include: {
+      users: true,          // quien reporta
+      reviews: {
+        include: {
+          users: true,      // autor de la reseña = usuario reportado
+        },
+      },
+    },
+    orderBy: { created_at: "desc" },
+  })
+},
+
+/* ------------------------------------------------------------------------
+   ACTUALIZAR REPORTE
+   Cambia el estado y guarda la nota de resolución.
+   ---------------------------------------------------------------------- */
+actualizarReporte: async (
+  id: number,
+  status: "resolved" | "rejected",
+  resolutionNote?: string
+) => {
+  return prisma.reports.update({
+    where: { id },
+    data: {
+      status,
+      resolution_note: resolutionNote ?? null,
+    },
+    include: { users: true },
   })
 },
 
