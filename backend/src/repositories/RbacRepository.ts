@@ -371,4 +371,131 @@ actualizarReporte: async (
   })
 },
 
+/* ------------------------------------------------------------------------
+   ACTIVIDAD DE USUARIOS
+   Cruza múltiples tablas para construir un feed de actividad real.
+   No contiene lógica de negocio — devuelve datos en bruto.
+   El servicio se encarga de normalizar y ordenar.
+   ---------------------------------------------------------------------- */
+obtenerActividadUsuarios: async (userId?: number, limit = 50) => {
+  const filtroUsuario = userId ? { user_id: userId } : {}
+  const filtroFollower = userId ? { follower_id: userId } : {}
+
+  const [
+    resenas,
+    likes,
+    comentarios,
+    follows,
+    watchlist,
+    favoritos,
+    vault,
+    pagos,
+  ] = await Promise.all([
+    prisma.reviews.findMany({
+      where: filtroUsuario,
+      select: {
+        user_id: true,
+        movie_id: true,
+        rating: true,
+        mode: true,
+        created_at: true,
+        users: { select: { id: true, username: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: limit,
+    }),
+
+    prisma.review_likes.findMany({
+      where: filtroUsuario,
+      select: {
+        user_id: true,
+        review_id: true,
+        created_at: true,
+        users: { select: { id: true, username: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: limit,
+    }),
+
+    prisma.review_comments.findMany({
+      where: filtroUsuario,
+      select: {
+        user_id: true,
+        review_id: true,
+        content: true,
+        created_at: true,
+        users: { select: { id: true, username: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: limit,
+    }),
+
+    prisma.follows.findMany({
+      where: filtroFollower,
+      select: {
+        follower_id: true,
+        following_id: true,
+        users_follows_follower_idTousers: {
+          select: { id: true, username: true },
+        },
+        users_follows_following_idTousers: {
+          select: { id: true, username: true },
+        },
+      },
+      take: limit,
+    }),
+
+    prisma.watchlist.findMany({
+      where: filtroUsuario,
+      select: {
+        user_id: true,
+        movie_id: true,
+        added_at: true,
+        users: { select: { id: true, username: true } },
+      },
+      orderBy: { added_at: "desc" },
+      take: limit,
+    }),
+
+    prisma.favorites.findMany({
+      where: filtroUsuario,
+      select: {
+        user_id: true,
+        movie_id: true,
+        users: { select: { id: true, username: true } },
+      },
+      take: limit,
+    }),
+
+    prisma.vault_social_entries.findMany({
+      where: filtroUsuario,
+      select: {
+        user_id: true,
+        entry_type: true,
+        title: true,
+        created_at: true,
+        users: { select: { id: true, username: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: limit,
+    }),
+
+    prisma.payments.findMany({
+      where: { ...filtroUsuario, payment_status: "paid" },
+      select: {
+        user_id: true,
+        amount: true,
+        payment_status: true,
+        created_at: true,
+        users: { select: { id: true, username: true } },
+        subscriptions: { select: { plan: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: limit,
+    }),
+  ])
+
+  return { resenas, likes, comentarios, follows, watchlist, favoritos, vault, pagos }
+},
+
 }

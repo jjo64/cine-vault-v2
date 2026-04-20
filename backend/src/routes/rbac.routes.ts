@@ -32,7 +32,8 @@ import {
   añadirStrike,
   obtenerStrikesUsuario,
   obtenerReportes,
-  actualizarReporte
+  actualizarReporte,
+  obtenerActividadUsuariosFeed
 } from "../controllers/RbacController.js"
 
 
@@ -442,6 +443,18 @@ router.get(
   verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
   manejadorAsincrono(buscarUsuario)
 )
+
+/* ------------------------------------------------------------------------
+   FEED DE ACTIVIDAD DE USUARIOS
+   Acepta ?userId=&limit= como filtros opcionales
+   ---------------------------------------------------------------------- */
+router.get(
+  "/users/activity/feed",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerActividadUsuariosFeed)
+)
+
 
 router.patch(
   "/users/:id/role",

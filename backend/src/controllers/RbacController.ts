@@ -165,3 +165,18 @@ export const actualizarReporte = async (req: Request, res: Response) => {
   )
   res.json(reporte)
 }
+
+/* --------------------------------------------------------------------------
+   ACTIVIDAD DE USUARIOS
+   Acepta userId y limit como query params opcionales
+   Ejemplos:
+     GET /api/rbac/users/activity/feed
+     GET /api/rbac/users/activity/feed?userId=7
+     GET /api/rbac/users/activity/feed?userId=7&limit=20
+   -------------------------------------------------------------------------- */
+export const obtenerActividadUsuariosFeed = async (req: Request, res: Response) => {
+  const userId = req.query.userId ? Number(req.query.userId) : undefined
+  const limit  = req.query.limit  ? Number(req.query.limit)  : 50
+  const feed   = await rbacService.obtenerActividadUsuariosService(userId, limit)
+  res.json(feed)
+}

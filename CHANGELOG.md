@@ -5,6 +5,85 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [20-04-2026] — Feed de actividad real de usuarios
+
+### Descripción
+Rediseño completo del apartado de actividad del panel de administración.
+Se reemplaza la tabla `ActivityTable` que mostraba registros mezclados de
+`user_activity` (incluyendo acciones de moderación) por un feed unificado
+que cruza múltiples tablas reales de la base de datos, mostrando únicamente
+acciones de los usuarios: reseñas, likes, comentarios, follows, watchlist,
+favoritos, vault y pagos.
+
+El endpoint está diseñado para ser consumido directamente por el frontend
+real de CineVault sin necesidad de cambios — devuelve un formato normalizado
+y ordenado por fecha.
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — nuevo método: obtenerActividadUsuarios
+- `backend/src/services/rbac.services.ts` — nuevo servicio: obtenerActividadUsuariosService
+- `backend/src/controllers/RbacController.ts` — nuevo handler: obtenerActividadUsuariosFeed
+- `backend/src/routes/rbac.routes.ts` — nueva ruta: GET /rbac/users/activity/feed
+- `admin-panel/src/components/ActivityFeedTable.tsx` — nuevo componente
+- `admin-panel/src/App.tsx` — integración de ActivityFeedTable, reemplaza ActivityTable
+
+### Añadido
+
+#### Endpoint
+```
+GET /api/rbac/users/activity/feed
+GET /api/rbac/users/activity/feed?userId=7
+GET /api/rbac/users/activity/feed?userId=7&limit=25
+```
+Parámetros opcionales:
+- `userId` — filtra la actividad de un usuario específico
+- `limit` — número máximo de registros (por defecto 50)
+
+#### Tablas cruzadas
+| Acción | Tabla origen |
+|---|---|
+| review_created | reviews |
+| review_liked | review_likes |
+| comment_created | review_comments |
+| user_followed | follows |
+| watchlist_added | watchlist |
+| favorite_added | favorites |
+| vault_created | vault_social_entries |
+| payment_completed | payments (status: paid) |
+
+#### Formato de respuesta normalizado
+```json
+[
+  {
+    "user": { "id": 1, "username": "josue" },
+    "action": "review_created",
+    "detail": "Valoró la película #56 con 4.5★ (modo: RAPIDO)",
+    "created_at": "2026-04-20T12:00:00.000Z"
+  }
+]
+```
+
+#### Componente ActivityFeedTable
+- Buscador por username con llamada a `/rbac/users/search`
+- Selector de límite (25 / 50 / 100)
+- Badges de colores por tipo de acción
+- Botón "Ver todo" para limpiar el filtro
+- Carga bajo demanda — no hace fetch hasta pulsar "Buscar"
+
+### Patrón aplicado
+Route → Controller → Service → Repository (SOLID completo)
+- Repository: 8 queries en paralelo con `Promise.all`
+- Service: normalización y ordenación del feed, sin Prisma
+- Controller: extrae `userId` y `limit` del query string
+- Route: ruta estática `/users/activity/feed` definida antes de `/users/:id/...`
+
+### Probado
+✅ Feed global devuelve actividad de todos los usuarios ordenada por fecha
+✅ Filtro por userId devuelve solo actividad del usuario indicado
+✅ Buscador por username resuelve el userId automáticamente
+✅ Límite funciona correctamente
+✅ Badges de colores por tipo de acción
+
 ## [20-04-2026] — Sistema de gestión de reportes completo
 
 ### Descripción

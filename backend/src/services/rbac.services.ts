@@ -297,4 +297,108 @@ actualizarReporteService: async (
   return reporte
 },
 
+/* ------------------------------------------------------------------------
+   ACTIVIDAD DE USUARIOS
+   Normaliza los datos en bruto del repositorio en un feed unificado
+   ordenado por fecha descendente.
+   ---------------------------------------------------------------------- */
+obtenerActividadUsuariosService: async (userId?: number, limit = 50) => {
+  const datos = await rbacRepository.obtenerActividadUsuarios(userId, limit)
+
+  type ActivityItem = {
+    user: { id: number; username: string }
+    action: string
+    detail: string
+    created_at: Date
+  }
+
+  const feed: ActivityItem[] = []
+
+  // Reseñas creadas
+  for (const r of datos.resenas) {
+    feed.push({
+      user: r.users,
+      action: "review_created",
+      detail: `Valoró la película ${r.movie_id} con ${r.rating}★ (modo: ${r.mode})`,
+      created_at: r.created_at,
+    })
+  }
+
+  // Likes dados
+  for (const l of datos.likes) {
+    feed.push({
+      user: l.users,
+      action: "review_liked",
+      detail: `Dio like a la reseña #${l.review_id}`,
+      created_at: l.created_at!,
+    })
+  }
+
+  // Comentarios
+  for (const c of datos.comentarios) {
+    feed.push({
+      user: c.users,
+      action: "comment_created",
+      detail: `Comentó en la reseña #${c.review_id}: "${c.content.substring(0, 60)}..."`,
+      created_at: c.created_at,
+    })
+  }
+
+  // Follows
+  for (const f of datos.follows) {
+    feed.push({
+      user: f.users_follows_follower_idTousers,
+      action: "user_followed",
+      detail: `Siguió a @${f.users_follows_following_idTousers.username}`,
+      created_at: new Date(0), // follows no tiene created_at en el schema
+    })
+  }
+
+  // Watchlist
+  for (const w of datos.watchlist) {
+    feed.push({
+      user: w.users,
+      action: "watchlist_added",
+      detail: `Añadió la película #${w.movie_id} a su watchlist`,
+      created_at: w.added_at,
+    })
+  }
+
+  // Favoritos — no tienen created_at en el schema, los ponemos al final
+  for (const f of datos.favoritos) {
+    feed.push({
+      user: f.users,
+      action: "favorite_added",
+      detail: `Añadió la película #${f.movie_id} a favoritos`,
+      created_at: new Date(0),
+    })
+  }
+
+  // Vault
+  for (const v of datos.vault) {
+    feed.push({
+      user: v.users,
+      action: "vault_created",
+      detail: `Publicó en el Vault: "${v.title}" (${v.entry_type})`,
+      created_at: v.created_at,
+    })
+  }
+
+  // Pagos
+  for (const p of datos.pagos) {
+    feed.push({
+      user: p.users,
+      action: "payment_completed",
+      detail: `Realizó un pago de ${p.amount}€ — plan ${p.subscriptions?.plan ?? "desconocido"}`,
+      created_at: p.created_at,
+    })
+  }
+
+  // Ordenar por fecha descendente y aplicar límite final
+  return feed
+    .filter(item => item.created_at > new Date(0)) // excluir los sin fecha
+    .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+    .slice(0, limit)
+},
+
 }
