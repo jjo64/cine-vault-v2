@@ -10,6 +10,7 @@ import { rbacRepository } from "../repositories/RbacRepository.js"
 import { UAParser } from "ua-parser-js"
 import { io, usuariosConectados } from "../config/socketio.config.js"
 import { invalidarCacheUsuario } from "../middlewares/rbac.middleware.js"
+import { alertarAdmins } from "./socket.services.js"
 
 
 export const rbacService = {
@@ -239,6 +240,7 @@ añadirStrikeService: async (userId: number, tipo: string, adminId: number) => {
         fechaBloqueo.setDate(fechaBloqueo.getDate() + 30)
         break
     }
+
     await rbacRepository.banearUsuario(userId, fechaBloqueo)
     await invalidarCacheUsuario(userId)
     await rbacRepository.registrarAccionModeracion(
@@ -247,6 +249,21 @@ añadirStrikeService: async (userId: number, tipo: string, adminId: number) => {
       userId,
       `Bloqueo automático por 3 strikes de tipo: ${tipo}`
     )
+
+    // ← Emitir alerta crítica a los admins
+    const usuarioBaneado = await rbacRepository.obtenerDatosUsuarioModeracion(userId)
+    alertarAdmins("ban_automatico", {
+      userId,
+      tipo,
+      prioridad: "critico",
+      timestamp: new Date().toISOString(),
+      usuario: usuarioBaneado ? {
+        username: usuarioBaneado.username,
+        email: usuarioBaneado.email,
+        role: usuarioBaneado.role,
+        membership: usuarioBaneado.membership,
+      } : null,
+    })
   }
 
   return totalStrikes
@@ -272,17 +289,36 @@ actualizarReporteService: async (
   reporteId: number,
   status: "resolved" | "rejected",
   resolutionNote: string,
-  adminId: number
+  adminId: number,
+  mensajePersonalizado?: string   // ← nuevo parámetro opcional
 ) => {
   const reporte = await rbacRepository.actualizarReporte(reporteId, status, resolutionNote)
 
-  // Notificar al reporter si el reporte fue resuelto
   if (status === "resolved" && reporte.reporter_id) {
     const socketId = usuariosConectados.get(reporte.reporter_id)
     if (socketId) {
       io.to(socketId).emit("nueva_notificacion", {
         type: "report_resolved",
         mensaje: "Tu reporte ha sido revisado y resuelto por un administrador.",
+      })
+    }
+  }
+
+  if (status === "rejected" && reporte.reporter_id) {
+    // Mensaje automático basado en el motivo
+    const mensajeAutomatico = mensajePersonalizado
+      ? `Tu reporte ha sido revisado y no ha podido ser aceptado. Motivo: ${resolutionNote}. ${mensajePersonalizado}`
+      : `Tu reporte ha sido revisado y no ha podido ser aceptado. Motivo: ${resolutionNote}.`
+
+    // Crear notificación en BD
+    await rbacRepository.crearWarning(reporte.reporter_id, mensajeAutomatico)
+
+    // Emitir en tiempo real si está conectado
+    const socketId = usuariosConectados.get(reporte.reporter_id)
+    if (socketId) {
+      io.to(socketId).emit("nueva_notificacion", {
+        type: "report_rejected",
+        mensaje: mensajeAutomatico,
       })
     }
   }
@@ -399,6 +435,116 @@ obtenerActividadUsuariosService: async (userId?: number, limit = 50) => {
     .filter(item => item.created_at > new Date(0)) // excluir los sin fecha
     .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
     .slice(0, limit)
+},
+
+
+  /* ------------------------------------------------------------------------
+   PERFIL COMPLETO DE USUARIO
+   Normaliza los datos en bruto del repositorio en un objeto limpio
+   listo para consumir desde cualquier frontend.
+   ---------------------------------------------------------------------- */
+obtenerPerfilUsuarioService: async (userId: number) => {
+  const datos = await rbacRepository.obtenerPerfilUsuario(userId)
+
+  if (!datos.usuario) return null
+
+  // Calcular strikes activos (últimos 90 días)
+  const fechaLimite = new Date()
+  fechaLimite.setDate(fechaLimite.getDate() - 90)
+  const strikesActivos = datos.strikes.filter(
+    s => new Date(s.created_at) > fechaLimite
+  )
+
+  // Estado de la cuenta
+  const estaBaneado = datos.usuario.locked_until
+    ? new Date(datos.usuario.locked_until) > new Date()
+    : false
+
+  const esBaneoPermamente = datos.usuario.locked_until
+    ? new Date(datos.usuario.locked_until).getFullYear() >= 2099
+    : false
+
+  return {
+    // Datos básicos
+    usuario: {
+      id: datos.usuario.id,
+      username: datos.usuario.username,
+      email: datos.usuario.email,
+      role: datos.usuario.role,
+      membership: datos.usuario.membership,
+      is_verified: datos.usuario.is_verified,
+      is_public: datos.usuario.is_public,
+      two_factor_enabled: datos.usuario.two_factor_enabled,
+      locked_until: datos.usuario.locked_until,
+      created_at: datos.usuario.created_at,
+      updated_at: datos.usuario.updated_at,
+    },
+
+    // Estado de la cuenta
+    cuenta: {
+      esta_baneado: estaBaneado,
+      es_baneo_permanente: esBaneoPermamente,
+      strikes_activos: strikesActivos.length,
+      strikes_historial: datos.strikes,
+      reportes_recibidos: datos.reportesRecibidos,
+      suscripcion: datos.suscripcion ?? null,
+    },
+
+    // Actividad
+    actividad: {
+      resenas: datos.resenas,
+      resenas_total: datos.resenas.length,
+      comentarios: datos.comentarios,
+      comentarios_total: datos.comentarios.length,
+      likes_dados: datos.likes,
+      likes_total: datos.likes.length,
+    },
+
+    // Pagos
+    pagos: datos.pagos,
+    pagos_total: datos.pagos.length,
+    pagos_completados: datos.pagos.filter(p => p.payment_status === "paid").length,
+    total_gastado: datos.pagos
+      .filter(p => p.payment_status === "paid")
+      .reduce((acc, p) => acc + Number(p.amount ?? 0), 0)
+      .toFixed(2),
+  }
+},
+/* ------------------------------------------------------------------------
+   SESIONES DE UN USUARIO
+   Parsea el user_agent con ua-parser-js para mostrar info legible.
+   ---------------------------------------------------------------------- */
+obtenerSesionesUsuarioService: async (userId: number) => {
+  const sesiones = await rbacRepository.obtenerSesionesUsuario(userId)
+  const parser = new UAParser()
+
+  return sesiones.map(sesion => {
+    parser.setUA(sesion.user_agent ?? "")
+    const resultado = parser.getResult()
+    return {
+      id: sesion.id,
+      navegador: resultado.browser.name ?? "Desconocido",
+      navegador_version: resultado.browser.version ?? "",
+      so: resultado.os.name ?? "Desconocido",
+      dispositivo: resultado.device.type ?? "desktop",
+      ip_address: sesion.ip_address ?? "Desconocida",
+      created_at: sesion.created_at,
+      expires_at: sesion.expires_at,
+    }
+  })
+},
+
+/* ------------------------------------------------------------------------
+   INVALIDAR SESIÓN
+   ---------------------------------------------------------------------- */
+invalidarSesionService: async (sessionId: string, adminId: number, userId: number) => {
+  await rbacRepository.invalidarSesion(sessionId)
+  await rbacRepository.registrarAccionModeracion(
+    adminId,
+    "session_invalidated",
+    userId,
+    `Sesión ${sessionId} invalidada manualmente por el admin`
+  )
 },
 
 }

@@ -182,16 +182,17 @@ export class ReviewsRepository implements IReviewsRepository {
 
   // ---- Reportes ----
 
-  async createReport(reporterId: number, reviewId: number, reason: string) {
-    return prisma.reports.create({
-      data: {
-        reporter_id: reporterId,
-        review_id: reviewId,
-        reason,
-        status: "pending",
-      },
-    })
-  }
+ async createReport(reporterId: number, reviewId: number, reason: string, reasonDetail?: string) {
+  return prisma.reports.create({
+    data: {
+      reporter_id: reporterId,
+      review_id: reviewId,
+      reason: reason as any, // el enum de Prisma
+      reason_detail: reasonDetail ?? null,
+      status: "pending",
+    },
+  })
+}
 
   // ---- Comentarios ----
 

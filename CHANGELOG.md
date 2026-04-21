@@ -5,6 +5,281 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [21-04-2026] — Dashboard de inicio con alertas en tiempo real
+
+### Descripción
+Implementación de un dashboard que carga automáticamente al entrar al panel.
+Combina estadísticas generales, alertas en tiempo real con niveles de prioridad
+y accesos rápidos a las secciones principales. Las alertas se muestran con
+colores según su gravedad y un badge en el sidebar indica las no leídas.
+
+### Archivos creados
+- `admin-panel/src/components/Dashboard.tsx` — dashboard principal
+- `admin-panel/src/types/alertas.ts` — interfaz compartida de alertas
+
+### Archivos modificados
+- `admin-panel/src/components/StatsCard.tsx` — mejorado con sublabel y formato numérico
+- `admin-panel/src/App.tsx` — dashboard como vista por defecto, gestión de alertas tipadas
+
+### Añadido
+- Vista de inicio automática al entrar al panel
+- Estadísticas generales cargadas automáticamente (usuarios, reseñas, moderación)
+- Sistema de alertas con 4 niveles de prioridad:
+  - 🔴 Crítico — baneo automático por IA, ban automático por strikes
+  - 🟠 Alto — reportes de acoso, lenguaje ofensivo, contenido inapropiado
+  - 🟡 Medio — reportes de spam, spoiler
+  - 🔵 Info — reservado para futuras notificaciones
+- Badge en sidebar con color dinámico según prioridad de alertas sin leer
+- Accesos rápidos a Reportes, Moderación, Actividad y Sesiones
+
+### Eventos Socket.IO añadidos
+| Evento | Cuándo se emite | Prioridad |
+|---|---|---|
+| `contenido_bloqueado` | IA detecta contenido grave | Crítico |
+| `nuevo_reporte` | Usuario crea un reporte | Alto/Medio según motivo |
+| `ban_automatico` | Usuario acumula 3 strikes | Crítico |
+
+---
+
+## [21-04-2026] — Perfil completo de usuario para el admin
+
+### Descripción
+Vista detallada de cada usuario accesible desde el panel de moderación.
+Centraliza toda la información de un usuario en un único punto: datos de cuenta,
+actividad, pagos y sesiones activas. Reemplaza las secciones independientes
+de Usuarios y Pagos del sidebar.
+
+### Archivos creados
+- `admin-panel/src/components/UserProfilePanel.tsx` — perfil completo con tabs
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — obtenerPerfilUsuario, obtenerSesionesUsuario, invalidarSesion
+- `backend/src/services/rbac.services.ts` — obtenerPerfilUsuarioService, obtenerSesionesUsuarioService, invalidarSesionService
+- `backend/src/controllers/RbacController.ts` — obtenerPerfilUsuario, obtenerSesionesUsuario, invalidarSesion
+- `backend/src/routes/rbac.routes.ts` — nuevas rutas de perfil y sesiones
+- `admin-panel/src/components/ModerationPanel.tsx` — botón "Ver perfil completo" en modal
+
+### Endpoints añadidos
+- `GET /api/rbac/users/:id/profile` — perfil completo del usuario
+- `GET /api/rbac/users/:id/sessions` — sesiones activas del usuario
+- `DELETE /api/rbac/users/:id/sessions/:sessionId` — invalidar sesión específica
+
+### Tabs del perfil
+| Tab | Contenido |
+|---|---|
+| 🔐 Cuenta | Estado, suscripción, strikes, reportes recibidos, 2FA, verificación |
+| 📋 Actividad | Últimas reseñas, comentarios, likes dados |
+| 💰 Pagos | Historial de transacciones, total gastado, plan activo |
+| 🔗 Sesiones | Sesiones activas con navegador, SO, IP y botón invalidar |
+
+### Respuesta del endpoint de perfil
+```json
+{
+  "usuario": { "id", "username", "email", "role", "membership", ... },
+  "cuenta": {
+    "esta_baneado": false,
+    "es_baneo_permanente": false,
+    "strikes_activos": 0,
+    "strikes_historial": [],
+    "reportes_recibidos": 16,
+    "suscripcion": { "plan", "status", "start_date", "end_date" }
+  },
+  "actividad": { "resenas", "comentarios", "likes_dados" },
+  "pagos": [],
+  "total_gastado": "0.00"
+}
+```
+
+### Probado
+✅ Perfil carga correctamente con todos los datos
+✅ Tab Sesiones muestra sesiones activas con info de dispositivo
+✅ Invalidar sesión elimina la sesión y desaparece de la lista
+✅ Botón "Ver perfil completo" desde modal de gestión
+
+---
+
+## [21-04-2026] — Limpieza del sidebar y eliminación de código obsoleto
+
+### Descripción
+Eliminación de secciones redundantes del panel de administración.
+La información de usuarios y pagos ahora se gestiona desde el perfil
+de usuario en el panel de moderación.
+
+### Archivos modificados
+- `admin-panel/src/App.tsx` — eliminadas secciones Usuarios, Pagos y Estadísticas del sidebar
+- `admin-panel/src/components/Dashboard.tsx` — estadísticas integradas en el dashboard
+
+### Eliminado
+- Sección "👥 Usuarios" del sidebar — reemplazada por Moderación → perfil de usuario
+- Sección "💰 Pagos" del sidebar — reemplazada por perfil de usuario → tab Pagos
+- Sección "📊 Estadísticas" del sidebar — integrada en el Dashboard
+
+### Archivos eliminados
+- `admin-panel/src/components/UsersTable.tsx`
+- `admin-panel/src/components/PaymentsTable.tsx`
+- `admin-panel/src/components/StatsPanel.tsx`
+- `admin-panel/src/components/ActivityTable.tsx`
+
+### Nota
+Los endpoints del backend (`GET /api/users`, `GET /api/rbac/payments`,
+`GET /api/rbac/stats`) se mantienen — el frontend real de CineVault los necesitará.
+
+---
+
+## [21-04-2026] — Sistema de reportes con enum, agrupación y rechazo con motivo
+
+### Descripción
+Rediseño completo del sistema de reportes. El campo `reason` pasa de texto
+libre a un enum tipado. Los reportes se agrupan visualmente por sección en
+el panel. El rechazo incluye motivo predefinido, texto personalizado y
+notificación automática al reporter.
+
+### Archivos modificados
+- `backend/prisma/schema.prisma` — nuevo enum `reports_reason`, campo `reason_detail`
+- `backend/src/schemas/reviews.ts` — `reportarResenaSchema` usa `z.enum`
+- `backend/src/repositories/ReviewsRepository.ts` — `createReport` acepta `reason_detail`
+- `backend/src/services/reviews.services.ts` — pasa `reason_detail`, emite `nuevo_reporte`
+- `backend/src/services/rbac.services.ts` — `actualizarReporteService` notifica al reporter
+- `backend/src/controllers/RbacController.ts` — `actualizarReporte` acepta `mensaje_personalizado`
+- `admin-panel/src/components/ReportsTable.tsx` — agrupación por sección, filtros, modal mejorado
+
+### Enum de motivos
+```prisma
+enum reports_reason {
+  lenguaje_ofensivo
+  spam
+  spoiler
+  contenido_inapropiado
+  acoso
+  otro
+}
+```
+
+### Nuevo campo
+```prisma
+reason_detail String? @db.VarChar(500) // texto libre opcional del reporter
+```
+
+### Nuevo enum de notificaciones
+```prisma
+report_rejected // notificación al reporter cuando se rechaza su reporte
+```
+
+### Flujo de rechazo con motivo
+```
+Admin pulsa "Rechazar reporte"
+↓
+Se despliega formulario inline con opciones predefinidas:
+  - No viola las normas de la comunidad
+  - El reporte está fuera de contexto
+  - No hay evidencia suficiente
+  - Contenido ya revisado anteriormente
+  - Reporte duplicado
+  - Otro motivo (texto libre)
+↓
+Admin puede añadir mensaje personalizado adicional (opcional)
+↓
+PATCH /rbac/reports/:id { status: "rejected", resolution_note, mensaje_personalizado }
+↓
+Backend envía notificación automática al reporter con el motivo
+↓
+Si el reporter está conectado → Socket.IO emite en tiempo real
+```
+
+### Mensajes automáticos al reporter
+El mensaje incluye siempre: motivo del rechazo + mensaje personalizado del admin (si existe).
+
+### Confirmación para acciones graves
+Ban temporal y ban permanente requieren confirmación inline antes de ejecutarse.
+
+### Probado
+✅ Reporte creado con enum y reason_detail guardado en BD
+✅ Tabla agrupa reportes por sección con badges de colores
+✅ Filtro por estado (Todos / Pendiente / Resuelto / Rechazado)
+✅ Modal muestra motivo detallado del reporter
+✅ Formulario de rechazo con motivos predefinidos y texto libre
+✅ Notificación llega al reporter al rechazar
+
+---
+
+## [21-04-2026] — Moderación directa desde panel sin reporte previo
+
+### Descripción
+El panel de moderación permite ahora gestionar usuarios directamente
+desde el buscador sin necesidad de un reporte previo. Útil para fallos
+de la IA o contenido antiguo que requiera acción manual.
+
+### Archivos modificados
+- `admin-panel/src/components/ModerationPanel.tsx` — modal de gestión con todas las acciones
+
+### Acciones disponibles desde el modal de usuario
+- Cambiar rol (user / editor / admin) con rol actual resaltado
+- Strike por tipo (spoiler / spam / acoso)
+- Enviar warning
+- Ban temporal (30 días)
+- Ban permanente
+- Desbanear
+
+### Reglas de UI
+- Ban temporal y ban permanente se deshabilitan si el usuario ya está baneado
+- Desbanear se deshabilita si el usuario no está baneado
+- El rol actual aparece resaltado en índigo
+- Botón "Ver perfil completo →" en el header del modal abre el perfil detallado
+
+---
+
+## [21-04-2026] — Sesiones por usuario con invalidación
+
+### Descripción
+Las sesiones activas de un usuario son visibles desde su perfil y el admin
+puede invalidarlas individualmente. Las estadísticas globales de navegadores
+y dispositivos se mantienen en la sección "Sesiones" del sidebar.
+
+### Archivos modificados
+- `backend/src/repositories/RbacRepository.ts` — obtenerSesionesUsuario, invalidarSesion
+- `backend/src/services/rbac.services.ts` — obtenerSesionesUsuarioService, invalidarSesionService
+- `backend/src/controllers/RbacController.ts` — obtenerSesionesUsuario, invalidarSesion
+- `backend/src/routes/rbac.routes.ts` — GET y DELETE de sesiones por usuario
+- `admin-panel/src/components/UserProfilePanel.tsx` — tab Sesiones
+
+### Información por sesión
+- Navegador y versión (parseado con ua-parser-js)
+- Sistema operativo
+- Tipo de dispositivo (desktop / mobile / tablet)
+- Dirección IP
+- Fecha de inicio y fecha de expiración
+
+### Acción registrada en historial
+Cuando el admin invalida una sesión queda registrado como `session_invalidated`
+en `user_activity` con el ID de la sesión y el admin que la invalidó.
+
+---
+
+## Resumen de endpoints nuevos — [21-04-2026]
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | /api/rbac/users/:id/profile | Perfil completo del usuario |
+| GET | /api/rbac/users/:id/sessions | Sesiones activas del usuario |
+| DELETE | /api/rbac/users/:id/sessions/:sessionId | Invalidar sesión |
+
+## Resumen de archivos creados — [21-04-2026]
+
+| Archivo | Descripción |
+|---|---|
+| `admin-panel/src/components/Dashboard.tsx` | Dashboard de inicio |
+| `admin-panel/src/components/UserProfilePanel.tsx` | Perfil completo de usuario |
+| `admin-panel/src/types/alertas.ts` | Interfaz compartida de alertas |
+
+## Archivos eliminados — [21-04-2026]
+
+| Archivo | Motivo |
+|---|---|
+| `admin-panel/src/components/UsersTable.tsx` | Reemplazado por perfil de usuario |
+| `admin-panel/src/components/PaymentsTable.tsx` | Integrado en perfil de usuario |
+| `admin-panel/src/components/StatsPanel.tsx` | Integrado en Dashboard |
+| `admin-panel/src/components/ActivityTable.tsx` | Reemplazado por ActivityFeedTable |
+
 ## [20-04-2026] — Feed de actividad real de usuarios
 
 ### Descripción

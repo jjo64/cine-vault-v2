@@ -10,12 +10,10 @@ import { middlewareAutenticacion } from "../middlewares/auth.middlewares.js"
 import { manejadorAsincrono } from "../middlewares/error.middlewares.js"
 import {
   verificarPermiso,
-  verificarRol,
   verificarPropietarioOPermiso,
 } from "../middlewares/rbac.middleware.js"
 import { PERMISOS } from "../config/permisos.js"
 import { prisma } from "../lib/prisma.js"
-import { emitirNotificacion } from "../controllers/NotificationsController.js"
 
 import { rbacRepository } from "../repositories/RbacRepository.js"
 import {
@@ -33,7 +31,10 @@ import {
   obtenerStrikesUsuario,
   obtenerReportes,
   actualizarReporte,
-  obtenerActividadUsuariosFeed
+  obtenerActividadUsuariosFeed,
+  obtenerPerfilUsuario,
+  obtenerSesionesUsuario,
+  invalidarSesion,
 } from "../controllers/RbacController.js"
 
 
@@ -187,6 +188,8 @@ router.delete(
     res.json({ message: "Noticia eliminada correctamente" })
   })
 )
+
+
 
 
 /**
@@ -409,6 +412,15 @@ router.get(
     res.json(pagos)
   })
 )
+/* ------------------------------------------------------------------------
+   PERFIL COMPLETO DE USUARIO — solo admin
+   ---------------------------------------------------------------------- */
+router.get(
+  "/users/:id/profile",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerPerfilUsuario)
+)
 
 /* ==========================================================================
    USUARIOS — rutas estáticas primero, luego con parámetros
@@ -542,6 +554,23 @@ router.get(
 //     // ... crear exhibición
 //   })
 // )
+
+/* ------------------------------------------------------------------------
+   SESIONES DE UN USUARIO — solo admin
+   ---------------------------------------------------------------------- */
+router.get(
+  "/users/:id/sessions",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerSesionesUsuario)
+)
+
+router.delete(
+  "/users/:id/sessions/:sessionId",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.CAMBIAR_ROL_USUARIOS),
+  manejadorAsincrono(invalidarSesion)
+)
 
 /* ------------------------------------------------------------------------
    STRIKES — solo admin

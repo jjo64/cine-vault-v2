@@ -156,12 +156,13 @@ export const obtenerReportes = async (req: Request, res: Response) => {
    ACTUALIZAR REPORTE — resolver o rechazar con nota de moderación
    -------------------------------------------------------------------------- */
 export const actualizarReporte = async (req: Request, res: Response) => {
-  const { status, resolution_note } = req.body
+  const { status, resolution_note, mensaje_personalizado } = req.body
   const reporte = await rbacService.actualizarReporteService(
     Number(req.params.id),
     status,
     resolution_note ?? "",
-    req.user!.user_id
+    req.user!.user_id,
+    mensaje_personalizado   // ← nuevo
   )
   res.json(reporte)
 }
@@ -179,4 +180,41 @@ export const obtenerActividadUsuariosFeed = async (req: Request, res: Response) 
   const limit  = req.query.limit  ? Number(req.query.limit)  : 50
   const feed   = await rbacService.obtenerActividadUsuariosService(userId, limit)
   res.json(feed)
+}
+
+/* --------------------------------------------------------------------------
+   PERFIL COMPLETO DE USUARIO
+   GET /api/rbac/users/:id/profile
+   -------------------------------------------------------------------------- */
+export const obtenerPerfilUsuario = async (req: Request, res: Response) => {
+  const perfil = await rbacService.obtenerPerfilUsuarioService(
+    Number(req.params.id)
+  )
+  if (!perfil) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Usuario no encontrado" } })
+  }
+  res.json(perfil)
+}
+
+/* --------------------------------------------------------------------------
+   SESIONES DE UN USUARIO
+   -------------------------------------------------------------------------- */
+export const obtenerSesionesUsuario = async (req: Request, res: Response) => {
+  const sesiones = await rbacService.obtenerSesionesUsuarioService(
+    Number(req.params.id)
+  )
+  res.json(sesiones)
+}
+
+/* --------------------------------------------------------------------------
+   INVALIDAR SESIÓN
+   -------------------------------------------------------------------------- */
+export const invalidarSesion = async (req: Request, res: Response) => {
+  const sessionId = String(req.params.sessionId)
+  await rbacService.invalidarSesionService(
+    sessionId,
+    req.user!.user_id,
+    Number(req.params.id)
+  )
+  res.json({ message: "Sesión invalidada correctamente" })
 }

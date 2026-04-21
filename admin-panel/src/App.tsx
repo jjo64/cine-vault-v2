@@ -1,19 +1,16 @@
 import { useState, useEffect } from "react"
-import StatsPanel from "./components/StatsPanel"
 import ReportsTable from "./components/ReportsTable"
-import UsersTable from "./components/UsersTable"
-import PaymentsTable from "./components/PaymentsTable"
-import ActivityTable from "./components/ActivityTable"
 import ModerationPanel from "./components/ModerationPanel"
 import UserCommentsTable from "./components/UserCommentsTable"
 import ActivityFeedTable from "./components/ActivityFeedTable"
+import Dashboard from "./components/Dashboard"
 
 import SessionsChart from "./components/SessionsChart"
 import { conectarSocket, desconectarSocket, socket } from "./socket"
+import type { Alerta } from "./types/alertas"
 
 const API = "http://localhost:4000/api"
 //const API = "http://192.168.1.15:4000/api"  para pruebas login movil
-
 
 export default function App() {
   const [token, setToken] = useState("")
@@ -22,20 +19,44 @@ export default function App() {
   const [vista, setVista] = useState("login")
   const [datos, setDatos] = useState<any>(null)
   const [error, setError] = useState("")
-  const [endpoint, setEndpoint] = useState("")
-  const [alertas, setAlertas] = useState<any[]>([])
+  const [endpoint, setEndpoint] = useState("dashboard")
+  const [alertas, setAlertas] = useState<Alerta[]>([])
+
 
  // Escucha alertas de contenido bloqueado por la IA
-  useEffect(() => {
-    socket.on("contenido_bloqueado", (datos) => {
-      console.log("[Socket] Datos recibidos:", datos)
-      setAlertas(prev => [datos, ...prev].slice(0, 10)) // máximo 10 alertas
-    })
+useEffect(() => {
+  socket.on("contenido_bloqueado", (datos) => {
+    setAlertas(prev => [{
+      tipo: "contenido_bloqueado",
+      prioridad: "critico",
+      leida: false,
+      ...datos,
+    }, ...prev].slice(0, 20))
+  })
 
-   return () => {
-      socket.off("contenido_bloqueado")
-    }
-  }, [])
+  socket.on("nuevo_reporte", (datos) => {
+    setAlertas(prev => [{
+      tipo: "nuevo_reporte",
+      leida: false,
+      ...datos,
+    }, ...prev].slice(0, 20))
+  })
+
+  socket.on("ban_automatico", (datos) => {
+    setAlertas(prev => [{
+      tipo: "ban_automatico",
+      prioridad: "critico",
+      leida: false,
+      ...datos,
+    }, ...prev].slice(0, 20))
+  })
+
+  return () => {
+    socket.off("contenido_bloqueado")
+    socket.off("nuevo_reporte")
+    socket.off("ban_automatico")
+  }
+}, [])
   
 
   // LOGIN
@@ -185,152 +206,100 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
         <div className="w-64 bg-gray-900 min-h-screen p-4 border-r border-gray-800 space-y-2">
           <p className="text-gray-500 text-xs uppercase mb-4">Panel de Admin</p>
           {[
+            { label: "🏠 Dashboard", endpoint: "dashboard" },
             { label: "🛡️ Moderación", endpoint: "/rbac/moderation" },
             { label: "📋 Actividad", endpoint: "/rbac/users/activity/feed" },
-            { label: "🚨 Reportes", endpoint: "/rbac/reports" },            
-            { label: "👥 Usuarios", endpoint: "/users" },
-            { label: "💰 Pagos", endpoint: "/rbac/payments" },
+            { label: "🚨 Reportes", endpoint: "/rbac/reports" },
             { label: "📰 Noticias", endpoint: "/rbac/news" },
-            { label: "📊 Estadísticas", endpoint: "/rbac/stats" },
             { label: "🌐 Sesiones", endpoint: "/rbac/stats/sessions" },
-            
           ].map(item => (
             <button
               key={item.endpoint}
-              className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition ${endpoint === item.endpoint ? "bg-gray-800 text-white" : ""}`}
+              className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition flex items-center justify-between ${
+                endpoint === item.endpoint ? "bg-gray-800 text-white" : ""
+              }`}
               onClick={() => {
                 if (item.endpoint === "/rbac/moderation") {
                   setEndpoint("/rbac/moderation")
+                  setDatos(null)
+                } else if (item.endpoint === "dashboard") {
+                  setEndpoint("dashboard")
                   setDatos(null)
                 } else {
                   llamar(item.endpoint)
                 }
               }}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.endpoint === "dashboard" && alertas.filter(a => !a.leida).length > 0 && (
+              <span className={`text-white text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                alertas.some(a => !a.leida && a.prioridad === "critico")
+                  ? "bg-red-500"
+                  : alertas.some(a => !a.leida && a.prioridad === "alto")
+                  ? "bg-orange-500"
+                  : "bg-yellow-500"
+              }`}>
+                {alertas.filter(a => !a.leida).length}
+              </span>
+            )}
             </button>
           ))}
         </div>
 
         {/* CONTENIDO */}
         <div className="flex-1 p-8">
-          {/* ALERTAS EN TIEMPO REAL */}
-        {alertas.length > 0 && (
-          <div className="mb-6 space-y-2">
-            <h3 className="text-red-400 text-sm font-semibold uppercase">
-              ⚠️ Alertas en tiempo real
-            </h3>
-        {alertas.map((alerta, i) => (
-          <div key={i} className="bg-red-950 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <span className="font-semibold">Contenido bloqueado</span>
-                <span className="text-red-400 ml-2">— {alerta.categorias}</span>
-                <p className="text-red-500 text-xs mt-1 truncate max-w-lg">"{alerta.texto}..."</p>
-                
-                {/* Datos del usuario */}
-                {alerta.usuario && (
-                  <div className="mt-2 flex gap-3 flex-wrap">
-                    <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
-                      👤 {alerta.usuario.username}
-                    </span>
-                    <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
-                      📧 {alerta.usuario.email}
-                    </span>
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                      alerta.usuario.role === "admin" ? "bg-red-500 text-red-950" :
-                      alerta.usuario.role === "editor" ? "bg-yellow-500 text-yellow-950" :
-                      "bg-blue-500 text-blue-950"
-                    }`}>
-                      {alerta.usuario.role}
-                    </span>
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                      alerta.usuario.membership === "pro" ? "bg-indigo-500 text-indigo-950" :
-                      alerta.usuario.membership === "vip" ? "bg-purple-500 text-purple-950" :
-                      "bg-gray-500 text-gray-950"
-                    }`}>
-                      {alerta.usuario.membership}
-                    </span>
-                    {alerta.usuario.reportes_previos > 0 && (
-                      <span className="bg-red-800 text-red-300 px-2 py-1 rounded text-xs font-semibold">
-                        ⚠️ {alerta.usuario.reportes_previos} reportes previos
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-              <span className="text-red-500 text-xs whitespace-nowrap ml-4">
-                {new Date(alerta.timestamp).toLocaleTimeString("es-ES")}
-              </span>
-            </div>
-            {/* ACCIONES */}
-            <div className="flex gap-2 mt-2">
-              <button
-                className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-xs font-semibold"
-                onClick={() => enviarWarning(alerta.userId, alerta.texto)}
-              >
-                ⚠️ Enviar warning
-              </button>
-              <button
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold"
-                onClick={() => banearUsuario(alerta.userId)}
-              >
-                🚫 Banear usuario
-              </button>
-              <button
-                className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded text-xs font-semibold"
-                onClick={() => {
-                  setAlertas(prev => prev.filter((_, j) => j !== i))
-                  setDatos(null)   // ← añade esto
-                  setEndpoint("")  // ← y esto
-                }}
-              >
-                ✕ Ignorar
-              </button>
-              <button
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold"
-                onClick={() => llamar(`/rbac/users/${alerta.userId}/comments`)}
-              >
-                💬 Ver comentarios
-              </button>
-            </div>
-          </div>
-        ))}
-          </div>
-        )}
           {error && (
             <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4">
               ⚠️ {error}
             </div>
           )}
-          {!datos && !error && (
-            <p className="text-gray-500">Selecciona una sección del menú</p>
+
+          {endpoint === "dashboard" && (
+            <Dashboard
+              token={token}
+              alertas={alertas}
+              onDismissAlerta={(i) => {
+                setAlertas(prev => prev.filter((_, j) => j !== i))
+              }}
+              onLeerAlerta={(i) => {                                    // ← añadir
+                setAlertas(prev => prev.map((a, j) =>
+                  j === i ? { ...a, leida: true } : a
+                ))
+              }}
+              onBanear={banearUsuario}
+              onWarning={enviarWarning}
+              onVerComentarios={(userId) => llamar(`/rbac/users/${userId}/comments`)}
+              onNavegar={(ep) => {
+                if (ep === "/rbac/moderation") {
+                  setEndpoint("/rbac/moderation")
+                  setDatos(null)
+                } else {
+                  llamar(ep)
+                }
+              }}
+            />
           )}
-                    {endpoint === "/rbac/moderation" && (
+
+          {endpoint === "/rbac/moderation" && (
             <ModerationPanel token={token} />
           )}
-          {datos && vista === "panel" && endpoint !== "/rbac/moderation" && (
+
+          {datos && vista === "panel" && endpoint !== "/rbac/moderation" && endpoint !== "dashboard" && (
             <>
-            {endpoint === "/rbac/stats" ? (
-              <StatsPanel datos={datos} />
-            ) : endpoint === "/rbac/reports" ? (
-              <ReportsTable datos={datos} token={token} />
-            ) : endpoint === "/users" ? (
-              <UsersTable datos={datos} />
-            ) : endpoint === "/rbac/payments" ? (
-              <PaymentsTable datos={datos} />
-            ) : endpoint === "/rbac/users/activity/feed" ? (
-              <ActivityFeedTable token={token} />
-            ) : endpoint === "/rbac/stats/sessions" ? (
-              <SessionsChart datos={datos} />
-            ) : endpoint.includes("/rbac/users/") && endpoint.includes("/comments") ? (
-              <UserCommentsTable
-                datos={datos}
-                token={token}
-                onCommentDeleted={(commentId) => {
-                  setDatos((prev: any) => prev.filter((c: any) => c.id !== commentId))
-                }}
-              />
+          {endpoint === "/rbac/reports" ? (
+            <ReportsTable datos={datos} token={token} />
+          ) : endpoint === "/rbac/users/activity/feed" ? (
+            <ActivityFeedTable token={token} />
+          ) : endpoint === "/rbac/stats/sessions" ? (
+            <SessionsChart datos={datos} />
+          ) : endpoint.includes("/rbac/users/") && endpoint.includes("/comments") ? (
+            <UserCommentsTable
+              datos={datos}
+              token={token}
+              onCommentDeleted={(commentId) => {
+                setDatos((prev: any) => prev.filter((c: any) => c.id !== commentId))
+              }}
+            />
               ) : (
                 <pre className="bg-gray-900 p-6 rounded-xl text-green-400 text-sm overflow-auto">
                   {JSON.stringify(datos, null, 2)}
@@ -338,8 +307,9 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
               )}
             </>
           )}
-        </div>
-      </div>
-    </div>
-  )
-}
+
+                </div>
+              </div>
+            </div>
+          )
+        }

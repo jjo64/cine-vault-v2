@@ -121,6 +121,9 @@ export const eliminarResenaService = async (
   await invalidateResenaCache(resena.movie_id)
 }
 
+import { alertarAdmins } from "./socket.services.js"
+import { rbacRepository } from "../repositories/RbacRepository.js"
+
 export const reportarResenaService = async (
   userId: number,
   reviewId: number,
@@ -129,7 +132,35 @@ export const reportarResenaService = async (
   const id = asegurarId(reviewId)
   const resena = await reviewsRepository.findById(id)
   if (!resena) throw new NotFoundError("Reseña no encontrada")
-  return reviewsRepository.createReport(userId, id, data.reason)
+
+  const reporte = await reviewsRepository.createReport(userId, id, data.reason, data.reason_detail)
+
+  // Obtener datos del usuario que reporta para enriquecer la alerta
+  const reporter = await rbacRepository.obtenerDatosUsuarioModeracion(userId)
+
+  // Determinar prioridad según el motivo
+  const prioridad = ["acoso", "lenguaje_ofensivo", "contenido_inapropiado"].includes(data.reason)
+    ? "alto"
+    : "medio"
+
+  // Emitir alerta en tiempo real a los admins
+  alertarAdmins("nuevo_reporte", {
+    reporteId: reporte.id,
+    motivo: data.reason,
+    motivoDetalle: data.reason_detail ?? null,
+    reviewId: id,
+    prioridad,
+    timestamp: new Date().toISOString(),
+    reporter: reporter ? {
+      id: reporter.id,
+      username: reporter.username,
+      email: reporter.email,
+      role: reporter.role,
+      membership: reporter.membership,
+    } : null,
+  })
+
+  return reporte
 }
 
 // ---------------------------------------------------------------------------
@@ -277,3 +308,5 @@ type MovieAggregate = {
   likes_total: number
   diary_entries: number
 }
+
+

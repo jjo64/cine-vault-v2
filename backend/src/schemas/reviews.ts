@@ -44,11 +44,21 @@ export const actualizarResenaSchema = z
 
 /** Reportar una reseña */
 export const reportarResenaSchema = z.object({
-  reason: z
+  reason: z.enum([
+    "lenguaje_ofensivo",
+    "spam",
+    "spoiler",
+    "contenido_inapropiado",
+    "acoso",
+    "otro",
+  ], { error: "El motivo debe ser una de las opciones disponibles" }),
+  reason_detail: z
     .string()
-    .min(5, "El motivo debe tener al menos 5 caracteres")
-    .max(500, "El motivo no puede superar 500 caracteres"),
+    .max(500, "El detalle no puede superar 500 caracteres")
+    .optional(),
 })
+
+export type ReportarResenaDTO = z.infer<typeof reportarResenaSchema>
 
 /** Comentar en una reseña */
 export const crearComentarioSchema = z.object({
@@ -70,6 +80,5 @@ export const actualizarComentarioSchema = z.object({
 // Tipos inferidos — exportar para usar en servicios y controladores
 export type CrearResenaDTO = z.infer<typeof crearResenaSchema>
 export type ActualizarResenaDTO = z.infer<typeof actualizarResenaSchema>
-export type ReportarResenaDTO = z.infer<typeof reportarResenaSchema>
 export type CrearComentarioDTO = z.infer<typeof crearComentarioSchema>
 export type ActualizarComentarioDTO = z.infer<typeof actualizarComentarioSchema>

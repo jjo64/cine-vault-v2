@@ -498,4 +498,162 @@ obtenerActividadUsuarios: async (userId?: number, limit = 50) => {
   return { resenas, likes, comentarios, follows, watchlist, favoritos, vault, pagos }
 },
 
+/* ------------------------------------------------------------------------
+   PERFIL COMPLETO DE USUARIO PARA EL ADMIN
+   Devuelve en paralelo todos los datos del usuario:
+   datos básicos, reseñas, comentarios, likes, pagos, suscripción y strikes.
+   El servicio se encarga de normalizar — aquí solo queries en bruto.
+   ---------------------------------------------------------------------- */
+obtenerPerfilUsuario: async (userId: number) => {
+  const [
+    usuario,
+    resenas,
+    comentarios,
+    likes,
+    pagos,
+    suscripcion,
+    strikes,
+    reportesRecibidos,
+  ] = await Promise.all([
+    prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        membership: true,
+        is_verified: true,
+        is_public: true,
+        two_factor_enabled: true,
+        locked_until: true,
+        created_at: true,
+        updated_at: true,
+      },
+    }),
+
+    prisma.reviews.findMany({
+      where: { user_id: userId },
+      select: {
+        id: true,
+        movie_id: true,
+        rating: true,
+        mode: true,
+        likes: true,
+        contiene_spoilers: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+      take: 10,
+    }),
+
+    prisma.review_comments.findMany({
+      where: { user_id: userId },
+      select: {
+        id: true,
+        content: true,
+        review_id: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+      take: 10,
+    }),
+
+    prisma.review_likes.findMany({
+      where: { user_id: userId },
+      select: {
+        review_id: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+      take: 10,
+    }),
+
+    prisma.payments.findMany({
+      where: { user_id: userId },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        payment_status: true,
+        provider: true,
+        created_at: true,
+        subscriptions: {
+          select: { plan: true, status: true },
+        },
+      },
+      orderBy: { created_at: "desc" },
+      take: 20,
+    }),
+
+    prisma.subscriptions.findFirst({
+      where: { user_id: userId, status: "active" },
+      select: {
+        id: true,
+        plan: true,
+        status: true,
+        start_date: true,
+        end_date: true,
+        provider: true,
+      },
+    }),
+
+    prisma.user_strikes.findMany({
+      where: { user_id: userId },
+      select: {
+        id: true,
+        tipo: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+    }),
+
+      prisma.reports.count({
+        where: { reviews: { user_id: userId } },
+      }),
+  ])
+
+  return {
+    usuario,
+    resenas,
+    comentarios,
+    likes,
+    pagos,
+    suscripcion,
+    strikes,
+    reportesRecibidos,
+  }
+},
+
+/* ------------------------------------------------------------------------
+   SESIONES DE UN USUARIO
+   Devuelve las sesiones activas de un usuario con su info de dispositivo.
+   ---------------------------------------------------------------------- */
+obtenerSesionesUsuario: async (userId: number) => {
+  return prisma.sessions.findMany({
+    where: {
+      user_id: userId,
+      expires_at: { gt: new Date() },
+    },
+    select: {
+      id: true,
+      user_agent: true,
+      ip_address: true,
+      created_at: true,
+      expires_at: true,
+    },
+    orderBy: { created_at: "desc" },
+  })
+},
+
+/* ------------------------------------------------------------------------
+   INVALIDAR SESIÓN
+   Elimina una sesión específica — fuerza el cierre de sesión en ese dispositivo.
+   ---------------------------------------------------------------------- */
+invalidarSesion: async (sessionId: string) => {
+  return prisma.sessions.delete({
+    where: { id: sessionId },
+  })
+},
+
 }
