@@ -5,6 +5,161 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [22-04-2026] — Panel dinámico por roles, dashboard mejorado y UX
+
+### Descripción
+Implementación de vistas diferenciadas por rol en el panel de administración.
+El sidebar, el dashboard y las secciones disponibles se adaptan automáticamente
+según el rol del usuario autenticado (admin, editor, user).
+Mejoras de UX: sidebar colapsable, paginación en listas de usuarios,
+tarjetas clickables en el dashboard y truncado responsive en todas las tablas.
+
+---
+
+## [22-04-2026] — Panel dinámico por roles
+
+### Archivos modificados
+- `admin-panel/src/App.tsx` — sidebar dinámico por rol, toggle colapsable, estado de rol
+
+### Añadido
+
+#### Detección de rol tras login
+El payload del JWT se decodifica y el rol se guarda en estado.
+El sidebar y el contenido se renderizan condicionalmente según el rol.
+
+#### Sidebar por rol
+| Rol | Secciones disponibles |
+|---|---|
+| admin | Dashboard, Moderación, Actividad, Reportes, Noticias, Sesiones |
+| editor | Dashboard, Noticias |
+| user | Mi perfil, Mis reseñas, Notificaciones, Mi suscripción |
+
+#### Badge de rol en el header
+El header muestra el rol del usuario con color diferenciado:
+- 🔴 Admin
+- 🟡 Editor
+- 🔵 User
+
+#### Sidebar colapsable
+Botón ☰ en el header colapsa y expande el sidebar con animación suave.
+Al colapsar el sidebar desaparece completamente — sin iconos intermedios.
+
+#### Dashboard por rol
+- **Admin** — dashboard completo con estadísticas, alertas y accesos rápidos
+- **Editor** — panel editorial con accesos a Noticias y Estadísticas de contenido
+- **User** — bienvenida con menú de navegación personal
+
+#### Vistas "Próximamente" para usuario
+- 👤 Mi perfil
+- 📝 Mis reseñas
+- 🔔 Notificaciones
+- 💰 Mi suscripción
+
+#### Corregido
+- Actividad eliminada del sidebar del editor — el endpoint requiere permisos de admin
+- Limpieza del rol al cerrar sesión
+
+---
+
+## [22-04-2026] — Dashboard admin mejorado con usuarios clickables y paginación
+
+### Archivos modificados
+- `admin-panel/src/components/Dashboard.tsx` — tarjetas clickables, paginación, nuevos usuarios
+- `backend/src/repositories/RbacRepository.ts` — obtenerUsuariosPorRol acepta createdAfter
+- `backend/src/services/rbac.services.ts` — obtenerUsuariosPorRolService acepta createdAfter
+- `backend/src/controllers/RbacController.ts` — obtenerUsuariosPorRol acepta query param createdAfter
+- `backend/src/routes/rbac.routes.ts` — GET /rbac/users con filtros opcionales
+
+### Añadido
+
+#### Tarjetas de usuarios clickables
+Las 4 tarjetas de usuarios (Total, Admins, Editores, Usuarios) son ahora
+botones que al pulsarse muestran la lista filtrada directamente en el dashboard.
+
+#### Botón "nuevos este mes →"
+El sublabel de la tarjeta "Total usuarios" es clickable y filtra los usuarios
+registrados desde el inicio del mes actual.
+
+#### Endpoint con filtros
+```
+GET /api/rbac/users                        → todos los usuarios
+GET /api/rbac/users?role=admin             → solo admins
+GET /api/rbac/users?role=editor            → solo editores
+GET /api/rbac/users?role=user              → solo usuarios
+GET /api/rbac/users?createdAfter=ISO_DATE  → nuevos desde esa fecha
+```
+
+#### Paginación en lista de usuarios
+- 15 usuarios por página
+- Navegación Anterior / Siguiente
+- Contador "X–Y de Z usuarios"
+- La página se resetea al cambiar el filtro
+
+#### Columnas de la lista
+ID, Usuario, Email (truncado), Rol, Membresía, Verificado, Fecha de registro
+
+---
+
+## [22-04-2026] — Truncado responsive en todas las tablas
+
+### Descripción
+Componente `TruncatedCell` reutilizable aplicado en todas las tablas del panel.
+Evita que el contenido largo desconfigue el layout. Comportamiento diferenciado
+por dispositivo: tooltip en desktop, expandible en móvil.
+
+### Archivos creados
+- `admin-panel/src/components/ui/TruncatedCell.tsx` — componente reutilizable
+
+### Archivos modificados
+- `admin-panel/src/components/ReportsTable.tsx` — columna Detalle
+- `admin-panel/src/components/ModerationPanel.tsx` — columna Motivo en historial
+- `admin-panel/src/components/ActivityFeedTable.tsx` — columna Detalle
+- `admin-panel/src/components/UserProfilePanel.tsx` — contenido de comentarios
+- `admin-panel/src/components/UserCommentsTable.tsx` — contenido del comentario
+- `admin-panel/src/components/Dashboard.tsx` — columna Email en lista de usuarios
+
+### Comportamiento
+| Dispositivo | Comportamiento |
+|---|---|
+| Desktop | Texto truncado con `...`, tooltip nativo al hacer hover |
+| Móvil | Texto truncado con botón "ver más" / "ver menos" |
+
+### Props
+| Prop | Tipo | Default | Descripción |
+|---|---|---|---|
+| text | string \| null | — | Texto a mostrar |
+| maxChars | number | 60 | Máximo de caracteres antes de truncar |
+| className | string | "" | Clases adicionales |
+
+### Tabla con ancho fijo
+`ReportsTable` usa `table-layout: fixed` con `<colgroup>` para garantizar
+anchos estables independientemente del contenido.
+
+---
+
+## Resumen de archivos nuevos — [22-04-2026]
+
+| Archivo | Descripción |
+|---|---|
+| `admin-panel/src/components/ui/TruncatedCell.tsx` | Celda truncada responsive |
+
+## Resumen de endpoints nuevos — [22-04-2026]
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | /api/rbac/users | Lista de usuarios con filtros opcionales (role, createdAfter) |
+
+## Probado
+✅ Admin ve el panel completo
+✅ Editor ve solo Dashboard y Noticias
+✅ User ve su panel personal
+✅ Sidebar se colapsa y expande con ☰
+✅ Tarjetas de usuarios muestran lista filtrada al pulsar
+✅ "Nuevos este mes →" filtra correctamente por fecha
+✅ Paginación funciona correctamente con 15 usuarios por página
+✅ TruncatedCell trunca en desktop y expande en móvil
+
+
 ## [21-04-2026] — Dashboard de inicio con alertas en tiempo real
 
 ### Descripción

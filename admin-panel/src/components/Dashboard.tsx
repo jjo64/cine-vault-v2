@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react"
 import type { Alerta } from "../types/alertas"
+import TruncatedCell from "./ui/TruncatedCell"
 
 // ─── StatsCard ────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,6 @@ interface DashboardProps {
   token: string
   alertas: Alerta[]
   onDismissAlerta: (index: number) => void
-  onLeerAlerta: (index: number) => void  // ← añadir
   onBanear: (userId: number) => void
   onWarning: (userId: number, texto: string) => void
   onVerComentarios: (userId: number) => void
@@ -71,11 +71,12 @@ const colorMembresia: Record<string, string> = {
   free: "bg-gray-700/50 text-gray-400 border border-gray-600/30",
 }
 
+
+
 export default function Dashboard({
   token,
   alertas,
   onDismissAlerta,
-  onLeerAlerta,  // ← añadir
   onBanear,
   onWarning,
   onVerComentarios,
@@ -84,6 +85,12 @@ export default function Dashboard({
   const [stats, setStats]       = useState<StatsData | null>(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState("")
+  const [usuariosVista, setUsuariosVista] = useState<any[] | null>(null)
+  const [usuariosFiltro, setUsuariosFiltro] = useState<string>("")
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false)
+  const [paginaUsuarios, setPaginaUsuarios] = useState(1)
+  const USUARIOS_POR_PAGINA = 15
+
 
   useEffect(() => {
     fetch(`${API}/rbac/stats`, {
@@ -97,6 +104,32 @@ export default function Dashboard({
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [token])
+
+   async function verUsuariosPorRol(role: string) {
+    setLoadingUsuarios(true)
+    setUsuariosFiltro(role)
+    setPaginaUsuarios(1)
+    try {
+      let url = `${API}/rbac/users`
+      if (role === "nuevos") {
+        const inicioMes = new Date()
+        inicioMes.setDate(1)
+        inicioMes.setHours(0, 0, 0, 0)
+        url = `${API}/rbac/users?createdAfter=${inicioMes.toISOString()}`
+      } else if (role !== "todos") {
+        url = `${API}/rbac/users?role=${role}`
+      }
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setUsuariosVista(data)
+    } catch {
+      setUsuariosVista([])
+    } finally {
+      setLoadingUsuarios(false)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -287,31 +320,34 @@ export default function Dashboard({
               Usuarios
             </h3>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <StatsCard
-                label="Total usuarios"
-                value={stats.usuarios.total}
-                icon="👥"
-                color="border-indigo-500"
-                sublabel={`${stats.usuarios.nuevos_este_mes} nuevos este mes`}
-              />
-              <StatsCard
-                label="Admins"
-                value={stats.usuarios.por_rol.admin}
-                icon="🛡️"
-                color="border-red-500"
-              />
-              <StatsCard
-                label="Editores"
-                value={stats.usuarios.por_rol.editor}
-                icon="✏️"
-                color="border-yellow-500"
-              />
-              <StatsCard
-                label="Usuarios"
-                value={stats.usuarios.por_rol.user}
-                icon="👤"
-                color="border-blue-500"
-              />
+              {[
+                { label: "Total usuarios", value: stats.usuarios.total,          role: "todos",  color: "border-indigo-500", icon: "👥", sublabel: `${stats.usuarios.nuevos_este_mes} nuevos este mes` },
+                { label: "Admins",         value: stats.usuarios.por_rol.admin,  role: "admin",  color: "border-red-500",    icon: "🛡️", sublabel: null },
+                { label: "Editores",       value: stats.usuarios.por_rol.editor, role: "editor", color: "border-yellow-500", icon: "✏️", sublabel: null },
+                { label: "Usuarios",       value: stats.usuarios.por_rol.user,   role: "user",   color: "border-blue-500",   icon: "👤", sublabel: null },
+              ].map(item => (
+                <div key={item.role} className="relative">
+                  <button
+                    onClick={() => verUsuariosPorRol(item.role)}
+                    className="w-full text-left hover:scale-105 transition-transform"
+                  >
+                    <StatsCard
+                      label={item.label}
+                      value={item.value}
+                      icon={item.icon}
+                      color={item.color}
+                    />
+                  </button>
+                  {item.sublabel && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); verUsuariosPorRol("nuevos") }}
+                      className="absolute bottom-3 left-5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      {item.sublabel} →
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -336,6 +372,122 @@ export default function Dashboard({
               />
             </div>
           </div>
+
+          {/* Lista de usuarios por rol */}
+          {usuariosVista && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                  {usuariosFiltro === "todos" ? "Todos los usuarios" : `Usuarios — ${usuariosFiltro}`}
+                  <span className="ml-2 text-gray-600">({usuariosVista.length})</span>
+                </h3>
+                <button
+                  onClick={() => setUsuariosVista(null)}
+                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  ✕ Cerrar
+                </button>
+              </div>
+
+              {loadingUsuarios && <p className="text-gray-500 text-sm">Cargando...</p>}
+
+              {!loadingUsuarios && (
+                <div className="overflow-x-auto rounded-xl border border-gray-800">
+                  <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+                    <colgroup>
+                      <col style={{ width: "60px" }} />
+                      <col style={{ width: "160px" }} />
+                      <col />
+                      <col style={{ width: "90px" }} />
+                      <col style={{ width: "90px" }} />
+                      <col style={{ width: "90px" }} />
+                      <col style={{ width: "110px" }} />
+                    </colgroup>
+                    <thead className="bg-gray-900 text-gray-400 uppercase text-xs">
+                      <tr>
+                        <th className="px-4 py-3 text-left">ID</th>
+                        <th className="px-4 py-3 text-left">Usuario</th>
+                        <th className="px-4 py-3 text-left">Email</th>
+                        <th className="px-4 py-3 text-left">Rol</th>
+                        <th className="px-4 py-3 text-left">Membresía</th>
+                        <th className="px-4 py-3 text-left">Verificado</th>
+                        <th className="px-4 py-3 text-left">Registro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usuariosVista
+                        .slice((paginaUsuarios - 1) * USUARIOS_POR_PAGINA, paginaUsuarios * USUARIOS_POR_PAGINA)
+                        .map((u, i) => (
+                        <tr
+                          key={u.id}
+                          className={`border-t border-gray-800 ${i % 2 === 0 ? "bg-gray-950" : "bg-gray-900"}`}
+                        >
+                          <td className="px-4 py-3 text-gray-500 font-mono text-xs">#{u.id}</td>
+                          <td className="px-4 py-3 text-white font-medium">@{u.username}</td>
+                          <td className="px-4 py-3 text-gray-400">
+                            <TruncatedCell text={u.email} maxChars={30} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                              u.role === "admin"  ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                              u.role === "editor" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+                                                  "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                            }`}>
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                              u.membership === "pro"  ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" :
+                              u.membership === "vip"  ? "bg-purple-500/10 text-purple-400 border-purple-500/20" :
+                                                      "bg-gray-700/50 text-gray-400 border-gray-600/30"
+                            }`}>
+                              {u.membership}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {u.is_verified
+                              ? <span className="text-green-400">✅ Sí</span>
+                              : <span className="text-gray-600">No</span>
+                            }
+                          </td>
+                          <td className="px-4 py-3 text-gray-400 text-xs">
+                            {new Date(u.created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {/* Paginación */}
+                  {usuariosVista.length > USUARIOS_POR_PAGINA && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
+                      <p className="text-xs text-gray-500">
+                        {Math.min((paginaUsuarios - 1) * USUARIOS_POR_PAGINA + 1, usuariosVista.length)}–{Math.min(paginaUsuarios * USUARIOS_POR_PAGINA, usuariosVista.length)} de {usuariosVista.length} usuarios
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          disabled={paginaUsuarios === 1}
+                          onClick={() => setPaginaUsuarios(p => p - 1)}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          ← Anterior
+                        </button>
+                        <button
+                          disabled={paginaUsuarios * USUARIOS_POR_PAGINA >= usuariosVista.length}
+                          onClick={() => setPaginaUsuarios(p => p + 1)}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Siguiente →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          
 
           {/* Moderación */}
           <div>
@@ -374,30 +526,9 @@ export default function Dashboard({
             </div>
           </div>
 
-          {/* Accesos rápidos */}
-          <div>
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
-              Accesos rápidos
-            </h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-              { label: "🚨 Reportes", endpoint: "/rbac/reports" },
-              { label: "🛡️ Moderación", endpoint: "/rbac/moderation" },
-              { label: "📋 Actividad", endpoint: "/rbac/users/activity/feed" },
-              { label: "🌐 Sesiones", endpoint: "/rbac/stats/sessions" },
-            ].map(item => (
-                <button
-                  key={item.endpoint}
-                  onClick={() => onNavegar(item.endpoint)}
-                  className="bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl p-4 text-left transition-colors"
-                >
-                  <p className="text-sm font-medium text-gray-300">{item.label}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  )
+          
+                  </>
+                )}
+              </div>
+            )
 }

@@ -35,6 +35,7 @@ import {
   obtenerPerfilUsuario,
   obtenerSesionesUsuario,
   invalidarSesion,
+  obtenerUsuariosPorRol,
 } from "../controllers/RbacController.js"
 
 
@@ -412,6 +413,14 @@ router.get(
     res.json(pagos)
   })
 )
+
+router.get(
+  "/users",
+  middlewareAutenticacion,
+  verificarPermiso(PERMISOS.VER_ACTIVIDAD_USUARIOS),
+  manejadorAsincrono(obtenerUsuariosPorRol)
+)
+
 /* ------------------------------------------------------------------------
    PERFIL COMPLETO DE USUARIO — solo admin
    ---------------------------------------------------------------------- */

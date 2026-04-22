@@ -218,3 +218,12 @@ export const invalidarSesion = async (req: Request, res: Response) => {
   )
   res.json({ message: "Sesión invalidada correctamente" })
 }
+
+export const obtenerUsuariosPorRol = async (req: Request, res: Response) => {
+  const { role, createdAfter } = req.query
+  const usuarios = await rbacService.obtenerUsuariosPorRolService(
+    typeof role === "string" ? role : undefined,
+    typeof createdAfter === "string" ? new Date(createdAfter) : undefined
+  )
+  res.json(usuarios)
+}

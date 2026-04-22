@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { useState } from "react"
+import TruncatedCell from "./ui/TruncatedCell"
 
 const API = "http://localhost:4000/api"
 
@@ -619,17 +620,25 @@ export default function ReportsTable({ datos, token }: ReportsTableProps) {
 
               {/* Tabla de la sección */}
               <div className="overflow-x-auto rounded-xl border border-gray-800">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-900 text-gray-400 uppercase text-xs">
-                    <tr>
-                      <th className="px-4 py-3 text-left">ID</th>
-                      <th className="px-4 py-3 text-left">Reportado por</th>
-                      <th className="px-4 py-3 text-left">Detalle</th>
-                      <th className="px-4 py-3 text-left">Estado</th>
-                      <th className="px-4 py-3 text-left">Fecha</th>
-                      <th className="px-4 py-3"></th>
-                    </tr>
-                  </thead>
+                <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: "80px" }} />   {/* ID */}
+                  <col style={{ width: "180px" }} />  {/* Reportado por */}
+                  <col />                             {/* Detalle — ocupa el resto */}
+                  <col style={{ width: "110px" }} />  {/* Estado */}
+                  <col style={{ width: "110px" }} />  {/* Fecha */}
+                  <col style={{ width: "100px" }} />  {/* Acción */}
+                </colgroup>
+                <thead className="bg-gray-900 text-gray-400 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">ID</th>
+                    <th className="px-4 py-3 text-left">Reportado por</th>
+                    <th className="px-4 py-3 text-left">Detalle</th>
+                    <th className="px-4 py-3 text-left">Estado</th>
+                    <th className="px-4 py-3 text-left">Fecha</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
                   <tbody>
                     {grupo.map((reporte, i) => (
                       <tr
@@ -640,8 +649,8 @@ export default function ReportsTable({ datos, token }: ReportsTableProps) {
                         <td className="px-4 py-3 text-white font-medium">
                           @{reporte.users?.username ?? "Desconocido"}
                         </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs max-w-xs truncate">
-                          {reporte.reason_detail ?? "—"}
+                        <td className="px-4 py-3 text-gray-400 max-w-xs">
+                          <TruncatedCell text={reporte.reason_detail} maxChars={50} />
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={reporte.status} />

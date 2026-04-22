@@ -14,6 +14,8 @@ const API = "http://localhost:4000/api"
 
 export default function App() {
   const [token, setToken] = useState("")
+  const [rol, setRol] = useState<"admin" | "editor" | "user" | "">("")
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false) 
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [vista, setVista] = useState("login")
@@ -70,12 +72,14 @@ useEffect(() => {
     })
     const data = await res.json()
     if (data.accessToken) {
-      setToken(data.accessToken)
-      setVista("panel")
-      const payload = decodificarToken(data.accessToken)
+    setToken(data.accessToken)
+    setVista("panel")
+    const payload = decodificarToken(data.accessToken)
     if (payload) {
+       console.log("ROL:", payload.role)
+      setRol(payload.role)
       conectarSocket(payload.user_id, payload.role)
-    }
+      }
     } else {
       setError("Credenciales incorrectas")
     }
@@ -184,66 +188,100 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
   }
 
   // PANEL
+  const sidebarItems = {
+  admin: [
+    { label: "🏠 Dashboard",    endpoint: "dashboard" },
+    { label: "🛡️ Moderación",  endpoint: "/rbac/moderation" },
+    { label: "📋 Actividad",    endpoint: "/rbac/users/activity/feed" },
+    { label: "🚨 Reportes",     endpoint: "/rbac/reports" },
+    { label: "📰 Noticias",     endpoint: "/rbac/news" },
+    { label: "🌐 Sesiones",     endpoint: "/rbac/stats/sessions" },
+  ],
+  editor: [
+    { label: "🏠 Dashboard",    endpoint: "dashboard" },
+    { label: "📰 Noticias",     endpoint: "/rbac/news" },
+  ],
+  user: [
+    { label: "🏠 Mi perfil",    endpoint: "mi-perfil" },
+    { label: "📝 Mis reseñas",  endpoint: "mis-resenas" },
+    { label: "🔔 Notificaciones", endpoint: "notificaciones" },
+    { label: "💰 Mi suscripción", endpoint: "mi-suscripcion" },
+  ],
+}
+
+const itemsActuales = sidebarItems[rol as keyof typeof sidebarItems] ?? sidebarItems.user
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* HEADER */}
-      <div className="bg-gray-900 px-8 py-4 flex justify-between items-center border-b border-gray-800">
-        <h1 className="text-xl font-bold">🎬 CineVault Admin</h1>
-        <button
-          className="text-gray-400 hover:text-white text-sm"
-          onClick={() => { 
-            setToken("")
-            setVista("login")
-            desconectarSocket()
-          }}
-        >
-          Cerrar sesión
-        </button>
-      </div>
+        {/* HEADER */}
+        <div className="bg-gray-900 px-8 py-4 flex justify-between items-center border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarCollapsed(prev => !prev)}
+              className="text-gray-400 hover:text-white transition-colors text-lg leading-none"
+            >
+              ☰
+            </button>
+            <h1 className="text-xl font-bold">🎬 CineVault</h1>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+              rol === "admin"  ? "bg-red-500/10 text-red-400 border-red-500/20" :
+              rol === "editor" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+                                "bg-blue-500/10 text-blue-400 border-blue-500/20"
+            }`}>
+              {rol}
+            </span>
+          </div>
+          <button
+            className="text-gray-400 hover:text-white text-sm"
+            onClick={() => {
+              setToken("")
+              setRol("")
+              setVista("login")
+              desconectarSocket()
+            }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
 
       <div className="flex">
         {/* SIDEBAR */}
-        <div className="w-64 bg-gray-900 min-h-screen p-4 border-r border-gray-800 space-y-2">
-          <p className="text-gray-500 text-xs uppercase mb-4">Panel de Admin</p>
-          {[
-            { label: "🏠 Dashboard", endpoint: "dashboard" },
-            { label: "🛡️ Moderación", endpoint: "/rbac/moderation" },
-            { label: "📋 Actividad", endpoint: "/rbac/users/activity/feed" },
-            { label: "🚨 Reportes", endpoint: "/rbac/reports" },
-            { label: "📰 Noticias", endpoint: "/rbac/news" },
-            { label: "🌐 Sesiones", endpoint: "/rbac/stats/sessions" },
-          ].map(item => (
-            <button
-              key={item.endpoint}
-              className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition flex items-center justify-between ${
-                endpoint === item.endpoint ? "bg-gray-800 text-white" : ""
-              }`}
-              onClick={() => {
-                if (item.endpoint === "/rbac/moderation") {
-                  setEndpoint("/rbac/moderation")
-                  setDatos(null)
-                } else if (item.endpoint === "dashboard") {
-                  setEndpoint("dashboard")
-                  setDatos(null)
-                } else {
-                  llamar(item.endpoint)
-                }
-              }}
-            >
-              <span>{item.label}</span>
-              {item.endpoint === "dashboard" && alertas.filter(a => !a.leida).length > 0 && (
-              <span className={`text-white text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                alertas.some(a => !a.leida && a.prioridad === "critico")
-                  ? "bg-red-500"
-                  : alertas.some(a => !a.leida && a.prioridad === "alto")
-                  ? "bg-orange-500"
-                  : "bg-yellow-500"
-              }`}>
-                {alertas.filter(a => !a.leida).length}
-              </span>
-            )}
-            </button>
-          ))}
+        <div className={`${sidebarCollapsed ? "w-0 overflow-hidden" : "w-64"} bg-gray-900 min-h-screen border-r border-gray-800 transition-all duration-300`}>
+          <div className="p-4 space-y-2">
+            <p className="text-gray-500 text-xs uppercase mb-4">
+              {rol === "admin" ? "Panel de Admin" : rol === "editor" ? "Panel de Editor" : "Mi Panel"}
+            </p>
+            {itemsActuales.map(item => (
+              <button
+                key={item.endpoint}
+                className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition flex items-center justify-between ${
+                  endpoint === item.endpoint ? "bg-gray-800 text-white" : ""
+                }`}
+                onClick={() => {
+                  if (item.endpoint === "/rbac/moderation") {
+                    setEndpoint("/rbac/moderation")
+                    setDatos(null)
+                  } else if (["dashboard", "mi-perfil", "mis-resenas", "notificaciones", "mi-suscripcion", "editor-stats"].includes(item.endpoint)) {
+                    setEndpoint(item.endpoint)
+                    setDatos(null)
+                  } else {
+                    llamar(item.endpoint)
+                  }
+                }}
+              >
+                <span>{item.label}</span>
+                {item.endpoint === "dashboard" && alertas.filter(a => !a.leida).length > 0 && (
+                  <span className={`text-white text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                    alertas.some(a => !a.leida && a.prioridad === "critico") ? "bg-red-500" :
+                    alertas.some(a => !a.leida && a.prioridad === "alto")    ? "bg-orange-500" :
+                    "bg-yellow-500"
+                  }`}>
+                    {alertas.filter(a => !a.leida).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* CONTENIDO */}
@@ -253,35 +291,96 @@ const enviarWarning = async (userId: number, contenidoOfensivo: string) => {
               ⚠️ {error}
             </div>
           )}
+        
+          {endpoint === "dashboard" && rol === "admin" && (
+          <Dashboard
+            token={token}
+            alertas={alertas}
+            onDismissAlerta={(i) => {
+              setAlertas(prev => prev.filter((_, j) => j !== i))
+            }}
+            onBanear={banearUsuario}
+            onWarning={enviarWarning}
+            onVerComentarios={(userId) => llamar(`/rbac/users/${userId}/comments`)}
+            onNavegar={(ep) => {
+              if (ep === "/rbac/moderation") {
+                setEndpoint("/rbac/moderation")
+                setDatos(null)
+              } else {
+                llamar(ep)
+              }
+            }}
+          />
+        )}
+        
+          {endpoint === "dashboard" && rol === "editor" && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-white text-xl font-bold mb-1">👋 Panel de Editor</h2>
+              <p className="text-gray-500 text-sm">Gestiona el contenido editorial de CineVault.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => llamar("/rbac/news")}
+                className="bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl p-5 text-left transition-colors"
+              >
+                <p className="text-2xl mb-2">📰</p>
+                <p className="text-sm font-medium text-gray-300">Noticias</p>
+                <p className="text-xs text-gray-500 mt-1">Crear, editar y borrar noticias</p>
+              </button>
+              <button
+                onClick={() => setEndpoint("editor-stats")}
+                className="bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl p-5 text-left transition-colors"
+              >
+                <p className="text-2xl mb-2">📊</p>
+                <p className="text-sm font-medium text-gray-300">Estadísticas</p>
+                <p className="text-xs text-gray-500 mt-1">Reseñas y actividad de contenido</p>
+              </button>
+            </div>
+          </div>
+        )}
 
-          {endpoint === "dashboard" && (
-            <Dashboard
-              token={token}
-              alertas={alertas}
-              onDismissAlerta={(i) => {
-                setAlertas(prev => prev.filter((_, j) => j !== i))
-              }}
-              onLeerAlerta={(i) => {                                    // ← añadir
-                setAlertas(prev => prev.map((a, j) =>
-                  j === i ? { ...a, leida: true } : a
-                ))
-              }}
-              onBanear={banearUsuario}
-              onWarning={enviarWarning}
-              onVerComentarios={(userId) => llamar(`/rbac/users/${userId}/comments`)}
-              onNavegar={(ep) => {
-                if (ep === "/rbac/moderation") {
-                  setEndpoint("/rbac/moderation")
-                  setDatos(null)
-                } else {
-                  llamar(ep)
-                }
-              }}
-            />
-          )}
+        {endpoint === "dashboard" && rol === "user" && (
+          <div className="space-y-4">
+            <h2 className="text-white text-xl font-bold">👋 Bienvenido</h2>
+            <p className="text-gray-500 text-sm">Usa el menú para navegar por tu panel personal.</p>
+          </div>
+        )}
 
           {endpoint === "/rbac/moderation" && (
             <ModerationPanel token={token} />
+          )}
+
+          {/* VISTAS DE USUARIO */}
+          {rol === "user" && endpoint === "mi-perfil" && (
+            <div className="space-y-4">
+              <h2 className="text-white text-xl font-bold">👤 Mi perfil</h2>
+              <p className="text-gray-500 text-sm">Próximamente — vista de perfil personal.</p>
+            </div>
+          )}
+          {rol === "user" && endpoint === "mis-resenas" && (
+            <div className="space-y-4">
+              <h2 className="text-white text-xl font-bold">📝 Mis reseñas</h2>
+              <p className="text-gray-500 text-sm">Próximamente — historial de reseñas.</p>
+            </div>
+          )}
+          {rol === "user" && endpoint === "notificaciones" && (
+            <div className="space-y-4">
+              <h2 className="text-white text-xl font-bold">🔔 Notificaciones</h2>
+              <p className="text-gray-500 text-sm">Próximamente — notificaciones y warnings.</p>
+            </div>
+          )}
+          {rol === "user" && endpoint === "mi-suscripcion" && (
+            <div className="space-y-4">
+              <h2 className="text-white text-xl font-bold">💰 Mi suscripción</h2>
+              <p className="text-gray-500 text-sm">Próximamente — estado de suscripción y pagos.</p>
+            </div>
+          )}
+          {rol === "editor" && endpoint === "editor-stats" && (
+            <div className="space-y-4">
+              <h2 className="text-white text-xl font-bold">📊 Estadísticas de contenido</h2>
+              <p className="text-gray-500 text-sm">Próximamente — estadísticas de reseñas y comentarios.</p>
+            </div>
           )}
 
           {datos && vista === "panel" && endpoint !== "/rbac/moderation" && endpoint !== "dashboard" && (

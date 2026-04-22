@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { useState } from "react"
+import TruncatedCell from "./ui/TruncatedCell"
 
 const API = "http://localhost:4000/api"
 
@@ -210,8 +211,8 @@ export default function ActivityFeedTable({ token }: ActivityFeedTableProps) {
                         {ACTION_LABEL[item.action] ?? item.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-300 text-xs max-w-xs truncate">
-                      {item.detail}
+                    <td className="px-4 py-3 text-gray-300 max-w-xs">
+                      <TruncatedCell text={item.detail} maxChars={70} />
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
                       {formatDate(item.created_at)}

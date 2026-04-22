@@ -656,4 +656,24 @@ invalidarSesion: async (sessionId: string) => {
   })
 },
 
+obtenerUsuariosPorRol: async (role?: string, createdAfter?: Date) => {
+  return prisma.users.findMany({
+    where: {
+      ...(role ? { role: role as any } : {}),
+      ...(createdAfter ? { created_at: { gte: createdAfter } } : {}),
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      membership: true,
+      is_verified: true,
+      locked_until: true,
+      created_at: true,
+    },
+    orderBy: { created_at: "desc" },
+  })
+},
+
 }

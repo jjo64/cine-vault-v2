@@ -9,6 +9,8 @@
    ========================================================================== */
 
 import { useEffect, useState } from "react"
+import TruncatedCell from "./ui/TruncatedCell"
+
 
 const API = "http://localhost:4000/api"
 
@@ -377,7 +379,7 @@ export default function UserProfilePanel({
               <div className="space-y-2">
                 {actividad.comentarios.map(c => (
                   <div key={c.id} className="bg-gray-900 rounded-lg px-4 py-3 border border-gray-800">
-                    <p className="text-gray-200 text-sm">{c.content}</p>
+                  <TruncatedCell text={c.content} maxChars={120} className="text-gray-200" />
                     <p className="text-gray-500 text-xs mt-1">
                       Reseña #{c.review_id} · {formatDate(c.created_at)}
                     </p>

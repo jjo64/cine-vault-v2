@@ -5,6 +5,8 @@
    El admin puede borrar cualquier comentario directamente desde aquí.
    ========================================================================== */
 
+import TruncatedCell from "./ui/TruncatedCell"
+
 interface Review {
   id: number
   movie_id: number
@@ -71,8 +73,8 @@ export default function UserCommentsTable({ datos, token, onCommentDeleted }: Us
                 key={comentario.id}
                 className={`border-t border-gray-800 ${i % 2 === 0 ? "bg-gray-950" : "bg-gray-900"}`}
               >
-                <td className="px-4 py-3 text-gray-300 max-w-md truncate">
-                  {comentario.content}
+                <td className="px-4 py-3 text-gray-300 max-w-md">
+                  <TruncatedCell text={comentario.content} maxChars={80} className="text-gray-300" />
                 </td>
                 <td className="px-4 py-3 text-gray-400">
                   #{comentario.reviews?.id}

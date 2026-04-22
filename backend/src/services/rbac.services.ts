@@ -547,4 +547,8 @@ invalidarSesionService: async (sessionId: string, adminId: number, userId: numbe
   )
 },
 
+obtenerUsuariosPorRolService: async (role?: string, createdAfter?: Date) => {
+  return rbacRepository.obtenerUsuariosPorRol(role, createdAfter)
+},
+
 }
