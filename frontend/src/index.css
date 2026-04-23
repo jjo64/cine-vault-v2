@@ -1,68 +1,156 @@
+@import './styles/tokens.css';
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --background: 8 8% 3%;
+  --foreground: 0 0% 89%;
+  --card: 0 0% 7%;
+  --card-foreground: 0 0% 89%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 89%;
+  --primary: 39 54% 65%;
+  --primary-foreground: 0 0% 3%;
+  --secondary: 0 0% 10%;
+  --secondary-foreground: 0 0% 89%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 0 0% 47%;
+  --accent: 39 54% 65%;
+  --accent-foreground: 0 0% 3%;
+  --destructive: 0 62% 40%;
+  --destructive-foreground: 0 0% 89%;
+  --border: 0 0% 15%;
+  --input: 0 0% 15%;
+  --ring: 39 54% 65%;
+  --radius: 0rem;
+}
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-color: var(--color-border);
+}
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+html,
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100vw;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Touch targets: solo para navegación principal en mobile */
+@media (max-width: 768px) {
+  .bottom-nav__item {
+    min-height: var(--touch-target, 44px);
+  }
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
 }
 
-@media (prefers-color-scheme: light) {
+
+/* ── Grain overlay global ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.35;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+}
+
+/* ── Selección de texto ── */
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+[data-sonner-toast][data-type='success'] {
+  border-left: 3px solid #D4AF7A;
+}
+
+[data-sonner-toast][data-type='error'] {
+  border-left: 3px solid #8B3A3A;
+}
+
+[data-sonner-toast][data-type='info'] {
+  border-left: 3px solid #252525;
+}
+
+/* ── Global Mobile Fixes ── */
+@media (max-width: 768px) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    --nav-height: var(--nav-height-mobile);
   }
-  a:hover {
-    color: #747bff;
+}
+/* -- Keyboard navigation (WCAG 2.1 AA � 2.4.7 Focus Visible) -- */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0;
+  border-color: var(--color-accent) !important;
+}
+
+/* -- Reduced motion (WCAG 2.1 � 2.3.3) -- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  button {
-    background-color: #f9f9f9;
-  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

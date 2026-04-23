@@ -1,10 +1,92 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <link rel="preconnect" href="https://image.tmdb.org">
+    <link rel="dns-prefetch" href="https://image.tmdb.org">
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link 
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Syne:wght@400;500&display=swap" 
+      rel="stylesheet"
+      media="all"
+    >
+
+    <!-- Título y descripción base (react-helmet-async los sobreescribe por ruta) -->
+    <title>CineVault — El diario cinematográfico que te define</title>
+    <meta
+      name="description"
+      content="Guardá películas en tu vault, escribí reseñas, llevá tu diario de cine y recibí una recomendación irrechazable cada noche. Para los que hacen del cine su vida."
+    />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CineVault" />
+    <meta property="og:title" content="CineVault — El diario cinematográfico que te define" />
+    <meta
+      property="og:description"
+      content="Guardá películas en tu vault, escribí reseñas, llevá tu diario de cine y recibí una recomendación irrechazable cada noche."
+    />
+    <meta property="og:url" content="https://cinevault.art/" />
+    <meta property="og:image" content="https://cinevault.art/og-home.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="es_ES" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CineVault — El diario cinematográfico que te define" />
+    <meta
+      name="twitter:description"
+      content="Guardá películas en tu vault, escribí reseñas, llevá tu diario de cine y recibí una recomendación irrechazable cada noche."
+    />
+    <meta name="twitter:image" content="https://cinevault.art/og-home.jpg" />
+
+    <!-- JSON-LD base: WebSite + SearchAction + WebApplication -->
+    <!-- Nota: Home.tsx inyecta su propio buildWebSiteSchema vía react-helmet-async,
+         este bloque sirve de fallback para crawlers que no ejecutan JS -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://cinevault.art/#website",
+            "name": "CineVault",
+            "url": "https://cinevault.art/",
+            "description": "Diario cinematográfico personal. Vault de películas, reseñas y recomendaciones nocturnas.",
+            "inLanguage": "es",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://cinevault.art/search?q={search_term_string}"
+              },
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://cinevault.art/#app",
+            "name": "CineVault",
+            "url": "https://cinevault.art/",
+            "applicationCategory": "EntertainmentApplication",
+            "operatingSystem": "Web",
+            "inLanguage": "es",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "EUR"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
