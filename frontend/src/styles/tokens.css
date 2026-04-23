@@ -1,0 +1,42 @@
+:root {
+    /* Breakpoints */
+    --bp-sm: 480px;
+    --bp-md: 768px;
+    --bp-lg: 1024px;
+    --bp-xl: 1280px;
+
+    /* Colors - Base */
+    --color-bg: #080808;
+    --color-surface: #111111;
+    --color-elevated: #1A1A1A;
+    --color-border: #252525;
+    --color-accent: #D4AF7A;
+    --color-accent-dim: #9A7A48;
+    --color-text: #E2E2E2;
+    --color-text-soft: #8A8A8A;
+    --color-text-muted: #6E6E6E;
+    --color-gold: #C8A96E;
+
+    /* Glows & Transparency */
+    --color-accent-glow: rgba(212, 175, 122, 0.15);
+    --color-accent-glow-strong: rgba(212, 175, 122, 0.18);
+
+    /* Typography */
+    --font-serif: 'Cormorant Garamond', serif;
+    --font-sans: 'Syne', sans-serif;
+
+    /* Spacing Scale (Baseline for Responsive) */
+    --space-xs: clamp(0.25rem, 0.2rem + 0.25vw, 0.5rem);
+    --space-sm: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem);
+    --space-md: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+    --space-lg: clamp(1.5rem, 1.2rem + 1.5vw, 2.5rem);
+    --space-xl: clamp(2rem, 1.5rem + 2.5vw, 4rem);
+
+    /* Mobile-specific layout tokens */
+    --nav-height: 64px;
+    --nav-height-mobile: 56px;
+    --page-padding-x: clamp(14px, 4vw, 52px);
+    --page-padding-x-sm: clamp(14px, 3vw, 24px);
+    --content-max-width: 1280px;
+    --touch-target: 44px;
+}
