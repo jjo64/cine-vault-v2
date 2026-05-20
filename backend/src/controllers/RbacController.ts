@@ -122,15 +122,21 @@ export const desbanearUsuario = async (req: Request, res: Response) => {
    -------------------------------------------------------------------------- */
 export const añadirStrike = async (req: Request, res: Response) => {
   const { tipo } = req.body
-  const totalStrikes = await rbacService.añadirStrikeService(
+  const resultado = await rbacService.añadirStrikeService(
     Number(req.params.id),
     tipo,
     req.user!.user_id
   )
-  res.json({ 
+
+  // Si el usuario ya estaba baneado el service devuelve un objeto
+  if (typeof resultado === "object") {
+    return res.json(resultado)
+  }
+
+  res.json({
     message: "Strike añadido correctamente",
-    total_strikes: totalStrikes,
-    bloqueado: totalStrikes >= 3
+    total_strikes: resultado,
+    bloqueado: resultado >= 3
   })
 }
 

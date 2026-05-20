@@ -156,6 +156,7 @@ function ManageModal({
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState("")
+  const [usuarioBaneado, setUsuarioBaneado] = useState(false)
 
   const reportedUser   = report.reviews?.users
   const reportedUserId = reportedUser?.id
@@ -202,18 +203,26 @@ function ManageModal({
         case "rechazar_con_motivo":
         await resolveReport("rejected", nota ?? "Reporte rechazado por el admin", mensajePersonalizado)
         break
-        case "strike_spoiler":
-          await call(`/rbac/users/${reportedUserId}/strikes`, "POST", { tipo: "spoiler" satisfies StrikeType })
+        case "strike_spoiler": {
+          const resultado = await call(`/rbac/users/${reportedUserId}/strikes`, "POST", { tipo: "spoiler" satisfies StrikeType })
+          if (resultado?.bloqueado) setUsuarioBaneado(true)
           await resolveReport("resolved", "Strike (spoiler) aplicado")
           break
-        case "strike_spam":
-          await call(`/rbac/users/${reportedUserId}/strikes`, "POST", { tipo: "spam" satisfies StrikeType })
+        }
+
+        case "strike_spam": {
+          const resultado = await call(`/rbac/users/${reportedUserId}/strikes`, "POST", { tipo: "spam" satisfies StrikeType })
+          if (resultado?.bloqueado) setUsuarioBaneado(true)
           await resolveReport("resolved", "Strike (spam) aplicado")
           break
-        case "strike_acoso":
-          await call(`/rbac/users/${reportedUserId}/strikes`, "POST", { tipo: "acoso" satisfies StrikeType })
+        }
+
+        case "strike_acoso": {
+          const resultado = await call(`/rbac/users/${reportedUserId}/strikes`, "POST", { tipo: "acoso" satisfies StrikeType })
+          if (resultado?.bloqueado) setUsuarioBaneado(true)
           await resolveReport("resolved", "Strike (acoso) aplicado")
           break
+        }
         case "warning":
           await call(`/rbac/users/${reportedUserId}/warning`, "POST", {
             contenidoOfensivo: contenido
@@ -230,6 +239,7 @@ function ManageModal({
         case "ban_perm":
           await call(`/rbac/users/${reportedUserId}/ban`, "PATCH", { locked_until: "2099-12-31T23:59:59.000Z" })
           await resolveReport("resolved", "Ban permanente aplicado")
+          setUsuarioBaneado(true)  // ← añadir
           break
         case "rechazar":
           await resolveReport("rejected", "Reporte rechazado por el admin")
@@ -321,7 +331,7 @@ function ManageModal({
               {(["spoiler", "spam", "acoso"] as const).map((tipo) => (
                 <button
                   key={tipo}
-                  disabled={loading || !reportedUserId}
+                  disabled={loading || !reportedUserId || usuarioBaneado}
                   onClick={() => handleAction(`strike_${tipo}`)}
                   className="text-xs py-2 px-3 rounded-lg bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed capitalize"
                 >

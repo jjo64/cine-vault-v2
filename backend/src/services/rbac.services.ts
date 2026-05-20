@@ -212,6 +212,13 @@ enviarWarningService: async (userId: number, contenidoOfensivo: string, adminId:
    SISTEMA DE STRIKES
    ---------------------------------------------------------------------- */
 añadirStrikeService: async (userId: number, tipo: string, adminId: number) => {
+  // 0. Verificar si el usuario ya está baneado — no se pueden añadir
+  //    más strikes sobre un usuario ya bloqueado (SOLID: validación en service)
+  const estadoBaneo = await rbacRepository.obtenerEstadoBaneo(userId)
+  if (estadoBaneo?.locked_until && new Date(estadoBaneo.locked_until) > new Date()) {
+    return { bloqueado: true, total_strikes: 0, mensaje: "El usuario ya está baneado" }
+  }
+
   // 1. Añadir el strike
   await rbacRepository.añadirStrike(userId, tipo, adminId)
 
@@ -550,5 +557,7 @@ invalidarSesionService: async (sessionId: string, adminId: number, userId: numbe
 obtenerUsuariosPorRolService: async (role?: string, createdAfter?: Date) => {
   return rbacRepository.obtenerUsuariosPorRol(role, createdAfter)
 },
+
+
 
 }

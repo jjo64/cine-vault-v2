@@ -5,6 +5,122 @@ Rama de trabajo: `desarrollo`
 
 ---
 
+## [20-05-2026] — Corrección de bugs en sistema de moderación y alertas
+
+### Descripción
+Sesión de corrección de bugs detectados durante las pruebas del panel de
+administración. Los bugs afectaban al sistema de strikes, al modal de
+moderación y a las alertas en tiempo real del Dashboard.
+
+---
+
+### Bug 1 — Strikes infinitos desde el modal de moderación ✅
+
+**Problema:** El modal de moderación permitía añadir strikes ilimitados
+aunque el usuario ya hubiera sido baneado automáticamente al alcanzar
+el límite de 3 strikes.
+
+**Causa:** Los botones usaban `esBaneado(user)` que lee `user.locked_until`
+del objeto de React, pero ese dato no se actualizaba en tiempo real cuando
+el ban era automático por strikes.
+
+**Fix backend — `RbacRepository.ts`:**
+- Añadido método `obtenerEstadoBaneo` que verifica si el usuario está
+  actualmente baneado antes de añadir un strike.
+
+**Fix backend — `rbac.services.ts`:**
+- `añadirStrikeService` verifica al inicio si el usuario ya está baneado.
+  Si lo está, devuelve `{ bloqueado: true, total_strikes: 0, mensaje: '...' }`
+  sin añadir el strike.
+- El service ahora devuelve `{ message, total_strikes, bloqueado }` en todos
+  los casos para que el frontend pueda reaccionar.
+
+**Fix backend — `RbacController.ts`:**
+- `añadirStrike` maneja correctamente ambos tipos de respuesta del service
+  (objeto con `bloqueado` o número de strikes).
+
+**Fix frontend — `ModerationPanel.tsx`:**
+- Añadido estado local `baneado` inicializado con `!!esBaneado(user)`.
+- Al aplicar ban temporal, ban permanente o al recibir `bloqueado: true`
+  en la respuesta de un strike, se actualiza `setBaneado(true)`.
+- Al desbanear, se actualiza `setBaneado(false)`.
+- Todos los botones de strike y ban usan `baneado` en lugar de
+  `esBaneado(user)` para reaccionar en tiempo real.
+
+**Fix frontend — `ReportsTable.tsx`:**
+- Añadido estado local `usuarioBaneado` en `ManageModal`.
+- Los cases de strike actualizan `setUsuarioBaneado(true)` si
+  `resultado.bloqueado === true`.
+- Los botones de strike usan `usuarioBaneado` en lugar de
+  `!!report.reviews?.users?.locked_until`.
+
+---
+
+### Bug 2 — Botón "Banear usuario" activo en alertas ya baneadas ✅
+
+**Problema:** En las alertas en tiempo real del Dashboard, el botón
+"Banear usuario" seguía activo aunque el usuario ya hubiera sido baneado
+(tanto por ban manual como por ban automático por 3 strikes), lo que
+provocaba un error 500 al intentar banear de nuevo.
+
+**Fix frontend — `App.tsx`:**
+- Añadido estado `usuariosBaneados: Set<number>` que trackea los IDs
+  de usuarios baneados durante la sesión.
+- `banearUsuario` actualiza el set al completar el baneo correctamente.
+- El listener de Socket.IO `ban_automatico` actualiza `usuariosBaneados`
+  automáticamente cuando el sistema banea por strikes.
+- `usuariosBaneados` se pasa como prop al componente `Dashboard`.
+
+**Fix frontend — `Dashboard.tsx`:**
+- Añadida prop `usuariosBaneados: Set<number>`.
+- El botón "Banear usuario" en las alertas tiene `disabled` cuando:
+  - `alerta.tipo === "ban_automatico"` (ya baneado por IA/strikes), o
+  - `usuariosBaneados.has(alerta.userId)` (baneado en esta sesión).
+- El botón muestra "Ya baneado" cuando está deshabilitado.
+- El `title` del botón muestra "Usuario ya baneado" al hacer hover.
+
+---
+
+### Bug 3 — Alertas duplicadas del mismo usuario ✅
+
+**Problema:** Si el mismo usuario generaba múltiples eventos de moderación
+en poco tiempo, las alertas se acumulaban en el Dashboard.
+
+**Fix frontend — `App.tsx`:**
+- Los listeners de `contenido_bloqueado` y `ban_automatico` filtran por
+  `userId` antes de añadir la nueva alerta, reemplazando la anterior.
+- El listener de `nuevo_reporte` filtra por `reporteId` para evitar
+  duplicados del mismo reporte.
+
+---
+
+### Archivos modificados
+
+| Archivo | Cambios |
+|---|---|
+| `backend/src/repositories/RbacRepository.ts` | Nuevo método `obtenerEstadoBaneo` |
+| `backend/src/services/rbac.services.ts` | Verificación de baneo al inicio de `añadirStrikeService` |
+| `backend/src/controllers/RbacController.ts` | Manejo de respuesta objeto/número en `añadirStrike` |
+| `admin-panel/src/App.tsx` | Estado `usuariosBaneados`, listener `ban_automatico` actualizado |
+| `admin-panel/src/components/Dashboard.tsx` | Prop `usuariosBaneados`, botón "Banear" con disabled dinámico |
+| `admin-panel/src/components/ModerationPanel.tsx` | Estado local `baneado`, botones con `disabled` reactivo |
+| `admin-panel/src/components/ReportsTable.tsx` | Estado local `usuarioBaneado`, cases de strike actualizados |
+
+---
+
+### Comportamiento esperado tras los fixes
+
+- Al aplicar el 3er strike, el usuario se banea automáticamente y los
+  botones del modal se deshabilitan inmediatamente sin necesidad de cerrar
+  y reabrir el modal.
+- El aviso "⛔ Usuario baneado — acciones de moderación deshabilitadas"
+  aparece en el modal con un enlace directo al perfil completo.
+- En el Dashboard, el botón "Banear usuario" de las alertas en tiempo real
+  se deshabilita automáticamente al recibir el evento `ban_automatico`
+  via Socket.IO, mostrando "Ya baneado".
+- Al hacer hover sobre botones deshabilitados aparece el tooltip
+  "Usuario baneado — desbanea primero para aplicar esta acción".
+
 ## [22-04-2026] — Panel dinámico por roles, dashboard mejorado y UX
 
 ### Descripción

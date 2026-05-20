@@ -57,6 +57,7 @@ interface DashboardProps {
   onWarning: (userId: number, texto: string) => void
   onVerComentarios: (userId: number) => void
   onNavegar: (endpoint: string) => void
+  usuariosBaneados: Set<number>
 }
 
 const colorRol: Record<string, string> = {
@@ -76,6 +77,7 @@ const colorMembresia: Record<string, string> = {
 export default function Dashboard({
   token,
   alertas,
+  usuariosBaneados,
   onDismissAlerta,
   onBanear,
   onWarning,
@@ -275,9 +277,21 @@ export default function Dashboard({
                 </button>
                 <button
                   onClick={() => alerta.userId && onBanear(alerta.userId)}
-                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+                  disabled={
+                    alerta.tipo === "ban_automatico" ||
+                    (alerta.userId ? usuariosBaneados.has(alerta.userId) : false)
+                  }
+                  title={
+                    alerta.tipo === "ban_automatico" || (alerta.userId && usuariosBaneados.has(alerta.userId))
+                      ? "Usuario ya baneado"
+                      : undefined
+                  }
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Banear usuario
+                  {alerta.tipo === "ban_automatico" || (alerta.userId && usuariosBaneados.has(alerta.userId))
+                    ? "Ya baneado"
+                    : "Banear usuario"
+                  }
                 </button>
                 <button
                   onClick={() => alerta.userId && onVerComentarios(alerta.userId)}

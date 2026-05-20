@@ -23,35 +23,50 @@ export default function App() {
   const [error, setError] = useState("")
   const [endpoint, setEndpoint] = useState("dashboard")
   const [alertas, setAlertas] = useState<Alerta[]>([])
+  const [usuariosBaneados, setUsuariosBaneados] = useState<Set<number>>(new Set())
+
 
 
  // Escucha alertas de contenido bloqueado por la IA
 useEffect(() => {
   socket.on("contenido_bloqueado", (datos) => {
-    setAlertas(prev => [{
-      tipo: "contenido_bloqueado",
-      prioridad: "critico",
-      leida: false,
-      ...datos,
-    }, ...prev].slice(0, 20))
+    setAlertas(prev => {
+      const sinDuplicados = prev.filter(a => a.userId !== datos.userId)
+      return [{
+        tipo: "contenido_bloqueado",
+        prioridad: "critico",
+        leida: false,
+        ...datos,
+      }, ...sinDuplicados].slice(0, 20)
+    })
   })
 
   socket.on("nuevo_reporte", (datos) => {
-    setAlertas(prev => [{
-      tipo: "nuevo_reporte",
-      leida: false,
-      ...datos,
-    }, ...prev].slice(0, 20))
+    setAlertas(prev => {
+      const sinDuplicados = prev.filter(a => a.reporteId !== datos.reporteId)
+      return [{
+        tipo: "nuevo_reporte",
+        leida: false,
+        ...datos,
+      }, ...sinDuplicados].slice(0, 20)
+    })
   })
 
-  socket.on("ban_automatico", (datos) => {
-    setAlertas(prev => [{
+socket.on("ban_automatico", (datos) => {
+  // Actualizar el set de usuarios baneados
+  if (datos.userId) {
+    setUsuariosBaneados(prev => new Set([...prev, datos.userId]))
+  }
+  setAlertas(prev => {
+    const sinDuplicados = prev.filter(a => a.userId !== datos.userId)
+    return [{
       tipo: "ban_automatico",
       prioridad: "critico",
       leida: false,
       ...datos,
-    }, ...prev].slice(0, 20))
+    }, ...sinDuplicados].slice(0, 20)
   })
+})
 
   return () => {
     socket.off("contenido_bloqueado")
@@ -114,10 +129,10 @@ const banearUsuario = async (userId: number) => {
     alert("Error: " + data.error.message)
   } else {
     alert("Usuario baneado correctamente")
-        setAlertas(prev => prev.filter(a => a.userId !== userId)) // ← elimina la alerta
-        setDatos(null)
-        setEndpoint("")
-
+    setUsuariosBaneados(prev => new Set([...prev, userId]))  // ← añadir
+    setAlertas(prev => prev.filter(a => a.userId !== userId))
+    setDatos(null)
+    setEndpoint("")
   }
 }
 
@@ -299,6 +314,7 @@ const itemsActuales = sidebarItems[rol as keyof typeof sidebarItems] ?? sidebarI
             onDismissAlerta={(i) => {
               setAlertas(prev => prev.filter((_, j) => j !== i))
             }}
+            usuariosBaneados={usuariosBaneados}
             onBanear={banearUsuario}
             onWarning={enviarWarning}
             onVerComentarios={(userId) => llamar(`/rbac/users/${userId}/comments`)}

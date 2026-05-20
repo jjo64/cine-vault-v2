@@ -676,4 +676,19 @@ obtenerUsuariosPorRol: async (role?: string, createdAfter?: Date) => {
   })
 },
 
+/* ------------------------------------------------------------------------
+   OBTENER ESTADO DE BANEO
+   Verifica si el usuario está actualmente baneado.
+   Se usa antes de añadir strikes para evitar acumular strikes
+   sobre un usuario ya baneado.
+   ---------------------------------------------------------------------- */
+obtenerEstadoBaneo: async (userId: number) => {
+  return prisma.users.findUnique({
+    where: { id: userId },
+    select: { locked_until: true }
+  })
+},
+
+
+
 }

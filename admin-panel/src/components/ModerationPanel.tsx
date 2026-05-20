@@ -115,6 +115,7 @@ function UserManageModal({
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState("")
   const [success, setSuccess] = useState("")
+  const [baneado, setBaneado] = useState(!!esBaneado(user))  
 
   async function call(path: string, method: string, body?: object) {
     const res = await fetch(`${API}${path}`, {
@@ -153,44 +154,58 @@ function UserManageModal({
           onUpdated({ role: "admin" })
           setSuccess("Rol cambiado a admin")
           break
-        case "strike_spoiler":
-          await call(`/rbac/users/${user.id}/strikes`, "POST", { tipo: "spoiler" satisfies StrikeType })
+        case "strike_spoiler": {
+          const resultado = await call(`/rbac/users/${user.id}/strikes`, "POST", { tipo: "spoiler" satisfies StrikeType })
+          console.log("RESULTADO STRIKE:", resultado)  // ← temporal
+          if (resultado?.bloqueado) {
+            onUpdated({ locked_until: new Date().toISOString() })
+            setBaneado(true)  // ← añadir
+          }
           setSuccess("Strike de spoiler añadido")
           break
-        case "strike_spam":
-          await call(`/rbac/users/${user.id}/strikes`, "POST", { tipo: "spam" satisfies StrikeType })
+        }
+
+        case "strike_spam": {
+          const resultado = await call(`/rbac/users/${user.id}/strikes`, "POST", { tipo: "spam" satisfies StrikeType })
+          if (resultado?.bloqueado) {
+            onUpdated({ locked_until: new Date().toISOString() })
+            setBaneado(true)  // ← añadir
+          }
           setSuccess("Strike de spam añadido")
           break
-        case "strike_acoso":
-          await call(`/rbac/users/${user.id}/strikes`, "POST", { tipo: "acoso" satisfies StrikeType })
+        }
+
+        case "strike_acoso": {
+          const resultado = await call(`/rbac/users/${user.id}/strikes`, "POST", { tipo: "acoso" satisfies StrikeType })
+          if (resultado?.bloqueado) {
+            onUpdated({ locked_until: new Date().toISOString() })
+            setBaneado(true)  // ← añadir
+          }
           setSuccess("Strike de acoso añadido")
           break
-        case "warning":
-          await call(`/rbac/users/${user.id}/warning`, "POST", {
-            contenidoOfensivo: "Revisión manual por el administrador"
-          })
-          setSuccess("Warning enviado al usuario")
-          break
+        }
+
         case "ban_temp": {
           const until = new Date()
           until.setDate(until.getDate() + 30)
-          await call(`/rbac/users/${user.id}/ban`, "PATCH", {
-            locked_until: until.toISOString(),
-          })
+          await call(`/rbac/users/${user.id}/ban`, "PATCH", { locked_until: until.toISOString() })
           onUpdated({ locked_until: until.toISOString() })
+          setBaneado(true)  // ← añadir
           setSuccess("Ban temporal de 30 días aplicado")
           break
         }
+
         case "ban_perm":
-          await call(`/rbac/users/${user.id}/ban`, "PATCH", {
-            locked_until: "2099-12-31T23:59:59.000Z",
-          })
+          await call(`/rbac/users/${user.id}/ban`, "PATCH", { locked_until: "2099-12-31T23:59:59.000Z" })
           onUpdated({ locked_until: "2099-12-31T23:59:59.000Z" })
+          setBaneado(true)  // ← añadir
           setSuccess("Ban permanente aplicado")
           break
+
         case "unban":
           await call(`/rbac/users/${user.id}/unban`, "PATCH")
           onUpdated({ locked_until: null })
+          setBaneado(false)  // ← añadir
           setSuccess("Usuario desbaneado correctamente")
           break
       }
@@ -284,6 +299,21 @@ function UserManageModal({
             Moderación directa
           </p>
 
+          {/* Aviso de usuario baneado */}
+          {baneado && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-between">
+              <p className="text-xs text-red-400">
+                ⛔ Usuario baneado — acciones de moderación deshabilitadas
+              </p>
+              <button
+                onClick={() => { onClose(); onVerPerfil(user.id) }}
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors whitespace-nowrap ml-3"
+              >
+                Ver perfil →
+              </button>
+            </div>
+          )}
+
           {/* Strikes */}
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-1.5">Añadir strike</p>
@@ -291,9 +321,10 @@ function UserManageModal({
               {(["spoiler", "spam", "acoso"] as const).map((tipo) => (
                 <button
                   key={tipo}
-                  disabled={loading}
+                  disabled={loading || baneado}
+                  title={baneado ? "Usuario baneado — desbanea primero para aplicar esta acción" : undefined}
                   onClick={() => handleAction(`strike_${tipo}`)}
-                  className="text-xs py-2 px-3 rounded-lg bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors disabled:opacity-40 capitalize"
+                  className="text-xs py-2 px-3 rounded-lg bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed capitalize"
                 >
                   {tipo}
                 </button>
@@ -311,21 +342,23 @@ function UserManageModal({
               Enviar warning
             </button>
             <button
-              disabled={loading || !!esBaneado(user)}
+              disabled={loading || baneado}
+              title={baneado ? "Usuario baneado — desbanea primero para aplicar esta acción" : undefined}
               onClick={() => handleAction("ban_temp")}
               className="text-xs py-2.5 px-3 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Ban temporal (30d)
             </button>
             <button
-              disabled={loading || !!esBaneado(user)}
+              disabled={loading || baneado}
+              title={baneado ? "Usuario baneado — desbanea primero para aplicar esta acción" : undefined}
               onClick={() => handleAction("ban_perm")}
               className="text-xs py-2.5 px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Ban permanente
             </button>
             <button
-              disabled={loading || !esBaneado(user)}
+              disabled={loading || !baneado}
               onClick={() => handleAction("unban")}
               className="text-xs py-2.5 px-3 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
